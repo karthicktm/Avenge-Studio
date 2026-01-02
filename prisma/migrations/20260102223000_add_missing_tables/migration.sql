@@ -105,9 +105,18 @@ DROP INDEX IF EXISTS "api_keys_service_key";
 CREATE UNIQUE INDEX IF NOT EXISTS "api_keys_user_id_service_key" ON "api_keys"("user_id", "service");
 
 -- AddForeignKey (only for new tables - existing tables have nullable user_id)
-ALTER TABLE "sessions" ADD CONSTRAINT IF NOT EXISTS "sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "workflows" ADD CONSTRAINT IF NOT EXISTS "workflows_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "generated_videos" ADD CONSTRAINT IF NOT EXISTS "generated_videos_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sessions_user_id_fkey') THEN
+        ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'workflows_user_id_fkey') THEN
+        ALTER TABLE "workflows" ADD CONSTRAINT "workflows_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'generated_videos_user_id_fkey') THEN
+        ALTER TABLE "generated_videos" ADD CONSTRAINT "generated_videos_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- Note: Foreign keys for existing tables (generated_images, api_keys, characters, products)
 -- are not added because user_id is NULL for existing records.
