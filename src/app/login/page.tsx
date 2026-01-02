@@ -78,7 +78,7 @@ function LoginForm() {
       {/* Navbar - logo only */}
       <header className="flex items-center px-6 py-4">
         <Link href="/" className="font-heading gradient-shift text-xl">
-          Content Cat
+          Avenge-Studio
         </Link>
       </header>
 
@@ -88,7 +88,7 @@ function LoginForm() {
           {/* Title */}
           <div className="mb-8 flex w-full flex-col text-center">
             <h1 className="text-xl font-semibold text-white">
-              Log in to Content Cat
+              Log in to Avenge-Studio
             </h1>
           </div>
 
@@ -164,7 +164,7 @@ function LoginForm() {
       <InfoModal
         isOpen={showResetModal}
         title="Reset Password"
-        message="Run this command in the Content Cat directory to reset your password:"
+        message="Run this command in the Avenge-Studio directory to reset your password:"
         command="pnpm reset-password"
         onClose={() => setShowResetModal(false)}
       />

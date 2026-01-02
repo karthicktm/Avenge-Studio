@@ -6,8 +6,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Content Cat • AI Image & Video Generator",
-    template: "%s • Content Cat",
+    default: "Avenge-Studio • AI Image & Video Generator",
+    template: "%s • Avenge-Studio",
   },
   description:
     "Transform your ideas into stunning visuals. Generate AI images, create cinematic videos, and build custom characters with professional-grade quality.",

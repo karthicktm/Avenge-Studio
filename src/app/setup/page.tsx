@@ -73,7 +73,7 @@ export default function SetupPage() {
       {/* Navbar - logo only */}
       <header className="flex items-center px-6 py-4">
         <Link href="/" className="font-heading gradient-shift text-xl">
-          Content Cat
+          Avenge-Studio
         </Link>
       </header>
 
@@ -83,7 +83,7 @@ export default function SetupPage() {
           {/* Title */}
           <div className="mb-8 flex w-full flex-col text-center">
             <h1 className="text-xl font-semibold text-white">
-              Welcome to Content Cat
+              Welcome to Avenge-Studio
             </h1>
             <p className="mt-2 text-sm text-zinc-400">
               Create your admin account to get started

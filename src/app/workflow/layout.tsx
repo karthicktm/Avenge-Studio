@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Workflow • Content Cat",
+  title: "Workflow • Avenge-Studio",
   description: "Visual workflow editor for AI content generation pipelines",
 };
 

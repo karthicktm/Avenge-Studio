@@ -95,7 +95,7 @@ export default function Header() {
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <Link href="/" className="font-heading gradient-shift text-xl">
-              Content Cat
+              Avenge-Studio
             </Link>
             <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
               v2.1.0
