@@ -45,6 +45,22 @@ RUN pnpm prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# Accept build args for environment variables needed during build
+ARG DATABASE_URL
+ARG REDIS_URL
+ARG SESSION_SECRET
+ARG CRON_SECRET
+ARG ENCRYPTION_KEY
+ARG FAL_KEY
+
+# Set build-time environment variables
+ENV DATABASE_URL=${DATABASE_URL}
+ENV REDIS_URL=${REDIS_URL}
+ENV SESSION_SECRET=${SESSION_SECRET:-build-time-secret}
+ENV CRON_SECRET=${CRON_SECRET:-build-time-secret}
+ENV ENCRYPTION_KEY=${ENCRYPTION_KEY:-build-time-key}
+ENV FAL_KEY=${FAL_KEY:-}
+
 RUN pnpm build
 
 # ─────────────────────────────────────────────────────────────────────────────

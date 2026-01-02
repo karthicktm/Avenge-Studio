@@ -7,6 +7,12 @@
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
+# Pass environment variables to Docker build as build args
+# Railway automatically makes service variables available during build
+[build.buildArgs]
+DATABASE_URL = "${{Postgres.DATABASE_URL}}"
+REDIS_URL = "${{Redis.REDIS_URL}}"
+
 [deploy]
 startCommand = "./start.sh"
 healthcheckPath = "/api/health"
