@@ -123,14 +123,25 @@ This automatically:
 
 ### Docker Deployment
 
+**Local Development (DB only):**
 ```bash
-# Development (DB only)
 docker compose up -d postgres redis
+```
 
-# Production (full stack)
+**Local Production (full stack):**
+```bash
 docker compose --profile production up -d
 ```
 
+**Railway Platform:**
+```bash
+# See RAILWAY.md for complete deployment guide
+# Requires: PostgreSQL plugin, Redis plugin, environment variables
+```
+
 Files:
-- `Dockerfile` - Multi-stage production build
+- `Dockerfile` - Multi-stage production build with migrations
 - `docker-compose.yml` - PostgreSQL, Redis, app services
+- `scripts/start.sh` - Production startup script (runs migrations)
+- `railway.toml` - Railway platform configuration
+- `.dockerignore` - Build optimization

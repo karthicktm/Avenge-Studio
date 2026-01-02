@@ -1,0 +1,15 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Railway Configuration
+# Defines build and deployment settings for Railway platform
+# ══════════════════════════════════════════════════════════════════════════════
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "./start.sh"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
