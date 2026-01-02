@@ -17,31 +17,15 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo ""
-echo "1/3 Checking database connection..."
-# Wait for database to be ready (max 30 seconds)
-timeout=30
-counter=0
-until node -e "require('./node_modules/@prisma/client').PrismaClient().then(c => c.\$connect()).catch(() => process.exit(1))" 2>/dev/null || [ $counter -eq $timeout ]; do
-  counter=$((counter + 1))
-  echo "Waiting for database... ($counter/$timeout)"
-  sleep 1
-done
-
-if [ $counter -eq $timeout ]; then
-  echo "ERROR: Database connection timeout"
-  exit 1
-fi
-
-echo "✓ Database is ready"
-
-echo ""
-echo "2/3 Running database migrations..."
+echo "1/2 Running database migrations..."
+# Prisma will handle database connection and wait internally
+# If database isn't ready, migrations will fail with a clear error
 npx prisma migrate deploy
 
 echo "✓ Migrations completed"
 
 echo ""
-echo "3/3 Starting Next.js server..."
+echo "2/2 Starting Next.js server..."
 echo "========================================="
 echo ""
 
