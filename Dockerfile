@@ -81,12 +81,12 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copy necessary files for Prisma migrations
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./package.json
 
-# Install only production Prisma packages needed for migrations
-# Using pnpm dlx to avoid creating package.json modifications
-RUN pnpm install --prod --no-lockfile prisma@7.2.0 @prisma/client@7.2.0 && \
-    pnpm prisma generate && \
+# Install only Prisma packages needed for migrations (without package.json to avoid installing everything)
+# Create minimal package.json just for Prisma
+RUN echo '{"name":"app","version":"1.0.0"}' > package.json && \
+    pnpm add prisma@7.2.0 @prisma/client@7.2.0 && \
+    npx prisma generate && \
     chown -R nextjs:nodejs /app/node_modules /app/prisma
 
 # Copy application files
