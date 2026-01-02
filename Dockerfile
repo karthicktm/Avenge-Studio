@@ -22,6 +22,9 @@ COPY prisma ./prisma/
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
+# Generate Prisma client (needed for runtime and migrations)
+RUN pnpm prisma generate
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Builder
 # ─────────────────────────────────────────────────────────────────────────────
@@ -34,12 +37,9 @@ WORKDIR /app
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy dependencies from deps stage
+# Copy dependencies from deps stage (includes generated Prisma client)
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Generate Prisma client
-RUN pnpm prisma generate
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
