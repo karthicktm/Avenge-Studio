@@ -79,20 +79,20 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files
-COPY --from=builder /app/public ./public
+# Copy necessary files for Prisma migrations
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 
-# Copy standalone build
+# Install only production Prisma packages needed for migrations
+# Using pnpm dlx to avoid creating package.json modifications
+RUN pnpm install --prod --no-lockfile prisma@7.2.0 @prisma/client@7.2.0 && \
+    pnpm prisma generate && \
+    chown -R nextjs:nodejs /app/node_modules /app/prisma
+
+# Copy application files
+COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Copy node_modules for prisma from deps stage (before build modified them)
-# The standalone build doesn't include all Prisma files needed for migrations
-COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
 
 # Copy startup script
 COPY --chown=nextjs:nodejs scripts/start.sh ./start.sh
