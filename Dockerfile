@@ -98,6 +98,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --chown=nextjs:nodejs scripts/start.sh ./start.sh
 RUN chmod +x ./start.sh
 
+# Create uploads directory with proper permissions for the nextjs user
+# Note: Railway filesystem is ephemeral - files are lost on redeploy
+# For production, consider using cloud storage (S3, Cloudinary, etc.)
+RUN mkdir -p /app/uploads && chown -R nextjs:nodejs /app/uploads
+
 USER nextjs
 
 # Environment
