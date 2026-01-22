@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import { prompts, type Prompt, type PromptCategory } from "@/lib/prompts";
+import {
+  videoPrompts,
+  type VideoPrompt,
+  type VideoPromptCategory,
+} from "@/lib/video-prompts";
 
 function PromptsIcon() {
   return (
@@ -57,12 +62,19 @@ function SearchIcon() {
   );
 }
 
+type PromptType = "image" | "video";
+
 interface Category {
   label: string;
   value: PromptCategory | "all";
 }
 
-const categories: Category[] = [
+interface VideoCategory {
+  label: string;
+  value: VideoPromptCategory | "all";
+}
+
+const imageCategories: Category[] = [
   { label: "All", value: "all" },
   { label: "Portrait", value: "portrait" },
   { label: "Realistic", value: "realistic" },
@@ -70,6 +82,18 @@ const categories: Category[] = [
   { label: "Filters", value: "filters" },
   { label: "Enhanced", value: "enhanced" },
   { label: "Product", value: "product" },
+];
+
+const videoCategories: VideoCategory[] = [
+  { label: "All", value: "all" },
+  { label: "Cinematic", value: "cinematic" },
+  { label: "Animation", value: "animation" },
+  { label: "Commercial", value: "commercial" },
+  { label: "Documentary", value: "documentary" },
+  { label: "Music Video", value: "music-video" },
+  { label: "Action", value: "action" },
+  { label: "Historical", value: "historical" },
+  { label: "Sci-Fi", value: "sci-fi" },
 ];
 
 function SearchInput({
@@ -96,12 +120,47 @@ function SearchInput({
   );
 }
 
+function PromptTypeToggle({
+  activeType,
+  onTypeChange,
+}: {
+  activeType: PromptType;
+  onTypeChange: (type: PromptType) => void;
+}) {
+  return (
+    <div className="flex gap-1 rounded-xl bg-white/5 p-1">
+      <button
+        onClick={() => onTypeChange("image")}
+        className={`rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+          activeType === "image"
+            ? "bg-pink-500 text-white"
+            : "text-zinc-300 hover:text-white"
+        }`}
+      >
+        Image
+      </button>
+      <button
+        onClick={() => onTypeChange("video")}
+        className={`rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+          activeType === "video"
+            ? "bg-purple-500 text-white"
+            : "text-zinc-300 hover:text-white"
+        }`}
+      >
+        Video
+      </button>
+    </div>
+  );
+}
+
 function CategoryTabs({
   activeCategory,
   onCategoryChange,
+  categories,
 }: {
   activeCategory: string;
   onCategoryChange: (category: string) => void;
+  categories: { label: string; value: string }[];
 }) {
   return (
     <div className="hide-scrollbar flex gap-1 overflow-x-auto rounded-xl bg-white/5 p-1">
@@ -172,9 +231,11 @@ function CheckIcon({ className }: { className?: string }) {
 const PromptCardComponent = memo(function PromptCardComponent({
   prompt,
   priority = false,
+  promptType = "image",
 }: {
-  prompt: Prompt;
+  prompt: Prompt | VideoPrompt;
   priority?: boolean;
+  promptType?: PromptType;
 }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -182,7 +243,8 @@ const PromptCardComponent = memo(function PromptCardComponent({
 
   const handleUsePrompt = () => {
     const encodedPrompt = encodeURIComponent(prompt.prompt);
-    router.push(`/image?prompt=${encodedPrompt}`);
+    const targetPage = promptType === "video" ? "/video" : "/image";
+    router.push(`${targetPage}?prompt=${encodedPrompt}`);
   };
 
   const handleCopy = async () => {
@@ -260,10 +322,20 @@ const PromptCardComponent = memo(function PromptCardComponent({
 });
 
 export default function PromptsPage() {
+  const [promptType, setPromptType] = useState<PromptType>("image");
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredPrompts = prompts.filter((prompt) => {
+  const handleTypeChange = (type: PromptType) => {
+    setPromptType(type);
+    setActiveCategory("all");
+  };
+
+  const currentPrompts = promptType === "image" ? prompts : videoPrompts;
+  const currentCategories =
+    promptType === "image" ? imageCategories : videoCategories;
+
+  const filteredPrompts = currentPrompts.filter((prompt) => {
     const matchesCategory =
       activeCategory === "all" || prompt.category === activeCategory;
     const matchesSearch =
@@ -289,12 +361,19 @@ export default function PromptsPage() {
             </p>
           </section>
 
-          {/* Search and Filters */}
-          <section className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} />
+          {/* Type Toggle and Search */}
+          <section className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <PromptTypeToggle
+                activeType={promptType}
+                onTypeChange={handleTypeChange}
+              />
+              <SearchInput value={searchQuery} onChange={setSearchQuery} />
+            </div>
             <CategoryTabs
               activeCategory={activeCategory}
               onCategoryChange={setActiveCategory}
+              categories={currentCategories}
             />
           </section>
 
@@ -303,10 +382,12 @@ export default function PromptsPage() {
             <div className="flex items-end justify-between gap-4">
               <div className="space-y-1">
                 <h2 className="font-heading text-lg text-white uppercase">
-                  Most Popular
+                  {promptType === "image" ? "Image Prompts" : "Video Prompts"}
                 </h2>
                 <p className="text-sm text-zinc-300">
-                  Most loved AI prompts by creators
+                  {promptType === "image"
+                    ? "Most loved AI image prompts by creators"
+                    : "Cinematic video prompts for stunning content"}
                 </p>
               </div>
             </div>
@@ -316,6 +397,7 @@ export default function PromptsPage() {
                   key={prompt.id}
                   prompt={prompt}
                   priority={index < 10}
+                  promptType={promptType}
                 />
               ))}
             </div>

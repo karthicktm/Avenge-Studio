@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import PresetSelector from "@/components/PresetSelector";
 import DeleteConfirmationModal from "@/components/DeleteConfirmationModal";
@@ -16,8 +17,12 @@ import { useVideoGeneration, useVideos, useImageUpload } from "@/hooks";
 import type { VideoModelId } from "@/lib/fal";
 
 function VideoPageContent() {
+  const searchParams = useSearchParams();
+  const initialPrompt = searchParams.get("prompt") || "";
+
   const [showPresetSelector, setShowPresetSelector] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const hasSetInitialPrompt = useRef(false);
 
   // Video history management (SWR-cached)
   const {
@@ -71,6 +76,14 @@ function VideoPageContent() {
     onSingleImageChange: (url) => updateVideoState({ imageUrl: url }),
     onModeChange: (mode) => updateVideoState({ mode }),
   });
+
+  // Set initial prompt from URL query parameter
+  useEffect(() => {
+    if (initialPrompt && !hasSetInitialPrompt.current) {
+      hasSetInitialPrompt.current = true;
+      updateVideoState({ prompt: initialPrompt });
+    }
+  }, [initialPrompt, updateVideoState]);
 
   // Handle model change with image reset
   const handleModelChangeWithReset = (modelId: VideoModelId) => {
@@ -213,10 +226,26 @@ function VideoPageContent() {
   );
 }
 
+function VideoPageSkeleton() {
+  return (
+    <div className="relative flex h-screen flex-col overflow-hidden">
+      <Header />
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 animate-spin rounded-full border-2 border-zinc-600 border-t-white" />
+          <span className="text-sm text-zinc-400">Loading...</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VideoPage() {
   return (
     <ErrorBoundary>
-      <VideoPageContent />
+      <Suspense fallback={<VideoPageSkeleton />}>
+        <VideoPageContent />
+      </Suspense>
     </ErrorBoundary>
   );
 }
