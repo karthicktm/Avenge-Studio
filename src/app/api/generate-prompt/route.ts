@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
+import { fal, configureFalClient } from "@/lib/fal/client";
+import { getApiKey } from "@/lib/services/apiKeyService";
 import {
   checkRateLimit,
   getClientIdentifier,
@@ -17,7 +18,7 @@ const generatePromptSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const { error: authError } = await requireAuth();
+  const { user, error: authError } = await requireAuth();
   if (authError) return authError;
 
   const clientId = getClientIdentifier(request);
@@ -29,14 +30,6 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: createRateLimitHeaders(rateLimitResult) }
     );
   }
-
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { error: "Anthropic API key not configured on the server." },
-      { status: 503 }
-    );
-  }
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   try {
     const body = await request.json();
@@ -51,6 +44,16 @@ export async function POST(request: NextRequest) {
     }
 
     const { productContext, language, contentType } = parseResult.data;
+
+    const apiKey = await getApiKey(user!.id);
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "No API key. Add your fal.ai key in Settings.", code: "NO_API_KEY" },
+        { status: 400 }
+      );
+    }
+
+    configureFalClient(apiKey);
 
     const langNames: Record<string, string> = {
       sv: "Swedish",
@@ -75,25 +78,21 @@ Your response must be valid JSON with this exact structure:
   "prompt": "Complete image generation prompt in English that describes the banner visual scene. Must include: the perfume bottle/product as the focal point, luxury background setting matching the brand style, the headline text overlaid on the image in ${langNames[language]}, typography style (sans-serif, bold), brand color accent. The prompt should be 150-300 words and suitable for Nano Banana Pro image model."
 }`;
 
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      messages: [
-        {
-          role: "user",
-          content: `Generate perfume banner ad copy based on this product context:\n\n${productContext}`,
-        },
-      ],
-      system: systemPrompt,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await (fal.subscribe as any)("fal-ai/any-llm", {
+      input: {
+        model: "google/gemini-flash-1-5",
+        system_prompt: systemPrompt,
+        prompt: `Generate perfume banner ad copy based on this product context:\n\n${productContext}`,
+        max_tokens: 2048,
+      },
     });
 
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const responseText: string = result?.data?.output ?? result?.output ?? "";
 
-    // Parse JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      logger.error("Failed to extract JSON from Claude response", { responseText });
+      logger.error("Failed to extract JSON from FAL response", { responseText });
       return NextResponse.json(
         { error: "Failed to generate prompt. Please try again." },
         { status: 500 }
