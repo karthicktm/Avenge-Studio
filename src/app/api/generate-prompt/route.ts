@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { fal, configureFalClient } from "@/lib/fal/client";
-import { getApiKey } from "@/lib/services/apiKeyService";
 import {
   checkRateLimit,
   getClientIdentifier,
@@ -9,7 +7,6 @@ import {
   RATE_LIMITS,
 } from "@/lib/rate-limit";
 import { requireAuth } from "@/lib/auth-helpers";
-import { logger } from "@/lib/logger";
 
 const generatePromptSchema = z.object({
   productContext: z.string().min(1).max(2000),
@@ -17,8 +14,98 @@ const generatePromptSchema = z.object({
   contentType: z.enum(["hero", "square", "story"]),
 });
 
+// Parse structured product context from ProductInput node output
+function parseProductContext(context: string) {
+  const lines = context.split("\n");
+  const get = (prefix: string) => {
+    const line = lines.find((l) => l.startsWith(prefix));
+    return line ? line.replace(prefix, "").trim() : "";
+  };
+  return {
+    productName: get("Product:").split(" by ")[0]?.trim() || "",
+    brand: get("Product:").split(" by ")[1]?.trim() || "",
+    scentNotes: get("Scent:"),
+    styleKeywords: get("Style:"),
+    brandColor: get("Brand color:"),
+    taglineDirection: get("Tagline direction:"),
+  };
+}
+
+// Language-specific copy templates
+const copy = {
+  sv: {
+    hero: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `Känn dig ${p.productName}`,
+      bodyCopy: `${p.brand} presenterar en sinnlig doft av ${p.scentNotes || "lyx och elegans"}.`,
+      cta: "Köp nu",
+    }),
+    square: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `${p.productName} av ${p.brand}`,
+      bodyCopy: `En ${p.scentNotes || "exklusiv"} doft som stannar kvar.`,
+      cta: "Upptäck mer",
+    }),
+    story: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `Din nya signatur`,
+      bodyCopy: `${p.brand} ${p.productName} — ${p.scentNotes || "en oförglömlig upplevelse"}.`,
+      cta: "Handla nu",
+    }),
+  },
+  no: {
+    hero: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `Kjenn deg ${p.productName}`,
+      bodyCopy: `${p.brand} presenterer en sanselig duft av ${p.scentNotes || "luksus og eleganse"}.`,
+      cta: "Kjøp nå",
+    }),
+    square: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `${p.productName} av ${p.brand}`,
+      bodyCopy: `En ${p.scentNotes || "eksklusiv"} duft som varer.`,
+      cta: "Oppdag mer",
+    }),
+    story: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `Din nye signatur`,
+      bodyCopy: `${p.brand} ${p.productName} — ${p.scentNotes || "en uforglemmelig opplevelse"}.`,
+      cta: "Handle nå",
+    }),
+  },
+  en: {
+    hero: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `Feel ${p.productName}`,
+      bodyCopy: `${p.brand} presents a sensory journey of ${p.scentNotes || "luxury and elegance"}.`,
+      cta: "Shop now",
+    }),
+    square: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `${p.productName} by ${p.brand}`,
+      bodyCopy: `A ${p.scentNotes || "signature"} fragrance that lingers.`,
+      cta: "Discover more",
+    }),
+    story: (p: ReturnType<typeof parseProductContext>) => ({
+      headline: p.taglineDirection || `Your new signature`,
+      bodyCopy: `${p.brand} ${p.productName} — ${p.scentNotes || "an unforgettable experience"}.`,
+      cta: "Shop now",
+    }),
+  },
+};
+
+// Build the image generation prompt
+function buildImagePrompt(
+  p: ReturnType<typeof parseProductContext>,
+  headline: string,
+  contentType: "hero" | "square" | "story"
+) {
+  const layouts: Record<string, string> = {
+    hero: "wide cinematic 16:9 landscape composition, product bottle centered with dramatic background extending to the sides",
+    square: "clean centered 1:1 square composition, product bottle prominent in the middle with balanced negative space",
+    story: "vertical 9:16 portrait composition, product bottle displayed prominently in the upper center, mobile-optimized layout",
+  };
+
+  const style = p.styleKeywords || "luxury, dark, moody, minimalist";
+  const color = p.brandColor || "#1A1A1A";
+
+  return `${p.brand} ${p.productName} perfume advertisement banner. ${layouts[contentType]}. The perfume bottle is the hero of the image, beautifully lit with soft studio lighting. Background is ${style} with color palette inspired by ${color}. Overlaid text reads "${headline}" in bold elegant sans-serif typography, white text with subtle shadow. The overall mood is ${style}. Ultra high resolution, luxury editorial photography style, professional perfume advertisement, aspirational and sophisticated. Scent notes inspiration: ${p.scentNotes || "woody, fresh, elegant"}. Brand: ${p.brand}. Product: ${p.productName}.`;
+}
+
 export async function POST(request: NextRequest) {
-  const { user, error: authError } = await requireAuth();
+  const { error: authError } = await requireAuth();
   if (authError) return authError;
 
   const clientId = getClientIdentifier(request);
@@ -31,93 +118,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  try {
-    const body = await request.json();
-    const parseResult = generatePromptSchema.safeParse(body);
+  const body = await request.json();
+  const parseResult = generatePromptSchema.safeParse(body);
 
-    if (!parseResult.success) {
-      const firstError = parseResult.error.issues[0];
-      return NextResponse.json(
-        { error: firstError?.message || "Invalid request body" },
-        { status: 400 }
-      );
-    }
-
-    const { productContext, language, contentType } = parseResult.data;
-
-    const apiKey = await getApiKey(user!.id);
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "No API key. Add your fal.ai key in Settings.", code: "NO_API_KEY" },
-        { status: 400 }
-      );
-    }
-
-    configureFalClient(apiKey);
-
-    const langNames: Record<string, string> = {
-      sv: "Swedish",
-      no: "Norwegian",
-      en: "English",
-    };
-
-    const contentTypeDescs: Record<string, string> = {
-      hero: "a wide cinematic hero banner (16:9 landscape format, large background scene, product centered or offset)",
-      square: "a square social post (1:1 format, clean centered composition, bold focal point)",
-      story: "a vertical story/ad (9:16 portrait format, mobile-first layout, product prominent in center)",
-    };
-
-    const systemPrompt = `You are a luxury fragrance marketing copywriter creating multilingual perfume banner ad copy.
-Given product context, generate compelling marketing copy in ${langNames[language]} for ${contentTypeDescs[contentType]}.
-
-Your response must be valid JSON with this exact structure:
-{
-  "headline": "The main headline in ${langNames[language]} (4-8 words, evocative and powerful)",
-  "bodyCopy": "1-2 sentence product description in ${langNames[language]} (sensory, aspirational)",
-  "cta": "Call-to-action button text in ${langNames[language]} (2-4 words)",
-  "prompt": "Complete image generation prompt in English that describes the banner visual scene. Must include: the perfume bottle/product as the focal point, luxury background setting matching the brand style, the headline text overlaid on the image in ${langNames[language]}, typography style (sans-serif, bold), brand color accent. The prompt should be 150-300 words and suitable for Nano Banana Pro image model."
-}`;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (fal.subscribe as any)("fal-ai/any-llm", {
-      input: {
-        model: "google/gemini-flash-1-5",
-        system_prompt: systemPrompt,
-        prompt: `Generate perfume banner ad copy based on this product context:\n\n${productContext}`,
-        max_tokens: 2048,
-      },
-    });
-
-    const responseText: string = result?.data?.output ?? result?.output ?? "";
-
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      logger.error("Failed to extract JSON from FAL response", { responseText });
-      return NextResponse.json(
-        { error: "Failed to generate prompt. Please try again." },
-        { status: 500 }
-      );
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      headline: string;
-      bodyCopy: string;
-      cta: string;
-      prompt: string;
-    };
-
-    return NextResponse.json({
-      prompt: parsed.prompt,
-      headline: parsed.headline,
-      bodyCopy: parsed.bodyCopy,
-      cta: parsed.cta,
-    });
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : "Unknown error";
-    logger.error("Prompt generation error", { error: errMsg });
+  if (!parseResult.success) {
+    const firstError = parseResult.error.issues[0];
     return NextResponse.json(
-      { error: "Failed to generate prompt. Please try again." },
-      { status: 500 }
+      { error: firstError?.message || "Invalid request body" },
+      { status: 400 }
     );
   }
+
+  const { productContext, language, contentType } = parseResult.data;
+
+  const product = parseProductContext(productContext);
+  const langCopy = copy[language][contentType](product);
+  const imagePrompt = buildImagePrompt(product, langCopy.headline, contentType);
+
+  return NextResponse.json({
+    prompt: imagePrompt,
+    headline: langCopy.headline,
+    bodyCopy: langCopy.bodyCopy,
+    cta: langCopy.cta,
+  });
 }
