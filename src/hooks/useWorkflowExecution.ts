@@ -19,6 +19,7 @@ import type {
   VideoSubtitlesNodeData,
   VideoTrimNodeData,
   VideoTransitionNodeData,
+  LanguagePromptNodeData,
 } from "@/components/workflow/types";
 import { useGenerationStore } from "@/lib/stores/generationStore";
 
@@ -164,6 +165,7 @@ const EXECUTABLE_NODE_TYPES = new Set([
   "videoSubtitles",
   "videoTrim",
   "videoTransition",
+  "languagePrompt",
 ]);
 
 export function useWorkflowExecution() {
@@ -1427,6 +1429,62 @@ export function useWorkflowExecution() {
     [updateNodeData]
   );
 
+  const executeLanguagePrompt = useCallback(
+    async (
+      nodeId: string,
+      nodeData: LanguagePromptNodeData,
+      inputs: ConnectedInput[]
+    ): Promise<ExecutionResult> => {
+      const productContext = extractPrompt(inputs);
+
+      if (!productContext) {
+        return {
+          success: false,
+          error: "No product context. Connect a Product Input node.",
+        };
+      }
+
+      updateNodeData(nodeId, { isGenerating: true });
+
+      try {
+        const response = await apiFetch("/api/generate-prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productContext,
+            language: nodeData.language || "sv",
+            contentType: nodeData.contentType || "hero",
+          }),
+          timeout: 60000, // 1 minute
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          updateNodeData(nodeId, { isGenerating: false });
+          return {
+            success: false,
+            error: result.error || "Prompt generation failed",
+          };
+        }
+
+        updateNodeData(nodeId, {
+          prompt: result.prompt,
+          headline: result.headline,
+          bodyCopy: result.bodyCopy,
+          cta: result.cta,
+          isGenerating: false,
+        });
+
+        return { success: true, data: result };
+      } catch {
+        updateNodeData(nodeId, { isGenerating: false });
+        throw new Error("Prompt generation failed");
+      }
+    },
+    [extractPrompt, updateNodeData]
+  );
+
   /**
    * Main execution function - routes to appropriate handler based on node type
    */
@@ -1532,6 +1590,14 @@ export function useWorkflowExecution() {
             );
             break;
 
+          case "languagePrompt":
+            result = await executeLanguagePrompt(
+              nodeId,
+              nodeData as LanguagePromptNodeData,
+              inputs
+            );
+            break;
+
           default:
             result = {
               success: false,
@@ -1572,6 +1638,7 @@ export function useWorkflowExecution() {
       executeVideoSubtitles,
       executeVideoTrim,
       executeVideoTransition,
+      executeLanguagePrompt,
     ]
   );
 
