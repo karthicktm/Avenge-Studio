@@ -52,6 +52,7 @@ export function useVideoHistory() {
 
   // Fetch videos on mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchVideos();
   }, [fetchVideos]);
 

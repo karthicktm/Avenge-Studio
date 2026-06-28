@@ -241,6 +241,9 @@ export async function POST(request: NextRequest) {
         }
 
         case "veo-3.1": {
+          // Veo 3.1 only accepts 4s, 6s, 8s durations
+          const veoValidDurations = ["4", "6", "8"];
+          const veoDuration = veoValidDurations.includes(duration) ? duration : "8";
           const client = createVeo31Client(apiKey);
           if (mode === "first-last-frame") {
             // First/Last frame mode
@@ -253,7 +256,7 @@ export async function POST(request: NextRequest) {
               prompt,
               first_frame_url: resolvedFirstFrameUrl,
               last_frame_url: resolvedLastFrameUrl,
-              duration: `${duration}s` as Veo31Duration,
+              duration: `${veoDuration}s` as Veo31Duration,
               aspect_ratio: aspectRatio as Veo31AspectRatio,
               resolution: (resolution || "720p") as Veo31Resolution,
               generate_audio: generateAudio ?? true,
@@ -269,7 +272,7 @@ export async function POST(request: NextRequest) {
             return client.generateImageToVideo({
               prompt,
               image_url: resolvedImageUrl,
-              duration: `${duration}s` as Veo31Duration,
+              duration: `${veoDuration}s` as Veo31Duration,
               aspect_ratio: aspectRatio as Veo31AspectRatio,
               resolution: (resolution || "720p") as Veo31Resolution,
               generate_audio: generateAudio ?? true,
@@ -315,8 +318,12 @@ export async function POST(request: NextRequest) {
       id: video.id,
     });
   } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Unknown error";
+    // Log fal.ai validation details if available (422 errors)
+    const errBody = (error as { body?: unknown })?.body;
     logger.error("Video generation error", {
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: errMsg,
+      ...(errBody ? { falDetail: errBody } : {}),
     });
 
     // Handle timeout errors specifically
@@ -327,9 +334,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const errorMsg =
-      error instanceof Error ? error.message : "Failed to generate video";
-    const parsed = parseFalError(errorMsg);
+    const parsed = parseFalError(errMsg || "Failed to generate video");
     return NextResponse.json(parsed, { status: 500 });
   }
 }

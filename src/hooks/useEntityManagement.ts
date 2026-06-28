@@ -62,6 +62,7 @@ export function useEntityManagement({
   }, [apiPath]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEntities();
   }, [fetchEntities]);
 

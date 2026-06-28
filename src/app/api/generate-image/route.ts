@@ -233,8 +233,12 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : "Unknown error";
+    // Log fal.ai validation details if available (422 errors)
+    const errBody = (error as { body?: unknown })?.body;
     logger.error("Image generation error", {
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: errMsg,
+      ...(errBody ? { falDetail: errBody } : {}),
     });
 
     // Handle timeout errors specifically
@@ -245,9 +249,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const errorMsg =
-      error instanceof Error ? error.message : "Failed to generate image";
-    const parsed = parseFalError(errorMsg);
+    const parsed = parseFalError(errMsg || "Failed to generate image");
     return NextResponse.json(parsed, { status: 500 });
   }
 }

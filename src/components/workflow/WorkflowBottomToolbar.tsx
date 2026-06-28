@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { useReactFlow, useViewport, Position } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
 import { apiFetch } from "@/lib/csrf";
@@ -302,6 +302,18 @@ const nodeItems: NodeItem[] = [
     category: "Input",
   },
   {
+    type: "productInput",
+    label: "Product Input",
+    icon: <EditIcon />,
+    category: "Input",
+  },
+  {
+    type: "languagePrompt",
+    label: "Language Prompt",
+    icon: <EditIcon />,
+    category: "Input",
+  },
+  {
     type: "kling26",
     label: "Kling 2.6 Pro",
     icon: <ModelIcon />,
@@ -358,6 +370,37 @@ const nodeItems: NodeItem[] = [
     category: "Editing",
   },
 ];
+
+const ToolbarButton = ({
+  onClick,
+  active,
+  disabled,
+  children,
+  title,
+}: {
+  onClick?: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  children: ReactNode;
+  title?: string;
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={`flex h-8 w-8 items-center justify-center rounded-[12px] transition-all duration-200 outline-none focus:outline-none ${
+      active
+        ? "bg-white/20 text-white"
+        : disabled
+          ? "cursor-not-allowed text-white/35"
+          : "text-white/70 hover:bg-white/10 hover:text-white"
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const Divider = () => <div className="h-px w-6 bg-white/10" />;
 
 interface WorkflowBottomToolbarProps {
   currentWorkflowId?: string | null;
@@ -416,6 +459,7 @@ export default function WorkflowBottomToolbar({
 
   useEffect(() => {
     if (showWorkflowsMenu) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchWorkflows();
       setPendingDeleteId(null);
       if (workflowSearchInputRef.current) {
@@ -700,60 +744,31 @@ export default function WorkflowBottomToolbar({
     setShowZoomPopup(false);
   };
 
-  const handleAddNode = (type: NodeType) => {
-    // Add node at center of viewport
-    const position = screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
+  const handleAddNode = useCallback(
+    (type: NodeType) => {
+      const position = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
 
-    const newNode = {
-      id: `node-${Date.now()}`,
-      type,
-      position,
-      data: getDefaultNodeData(type),
-    };
+      const newNode = {
+        id: `node-${Date.now()}`,
+        type,
+        position,
+        data: getDefaultNodeData(type),
+      };
 
-    setNodes((nodes) => [...nodes, newNode]);
-    setShowNodesMenu(false);
-    setSearchQuery("");
-  };
+      setNodes((nodes) => [...nodes, newNode]);
+      setShowNodesMenu(false);
+      setSearchQuery("");
+    },
+    [screenToFlowPosition, setNodes, setShowNodesMenu, setSearchQuery],
+  );
 
   const handleDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
   };
-
-  const ToolbarButton = ({
-    onClick,
-    active,
-    disabled,
-    children,
-    title,
-  }: {
-    onClick?: () => void;
-    active?: boolean;
-    disabled?: boolean;
-    children: React.ReactNode;
-    title?: string;
-  }) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`flex h-8 w-8 items-center justify-center rounded-[12px] transition-all duration-200 outline-none focus:outline-none ${
-        active
-          ? "bg-white/20 text-white"
-          : disabled
-            ? "cursor-not-allowed text-white/35"
-            : "text-white/70 hover:bg-white/10 hover:text-white"
-      }`}
-    >
-      {children}
-    </button>
-  );
-
-  const Divider = () => <div className="h-px w-6 bg-white/10" />;
 
   return (
     <div
@@ -1168,6 +1183,25 @@ function getDefaultNodeData(type: NodeType) {
       };
     case "file":
       return { label: "File" };
+    case "productInput":
+      return {
+        label: "Product Input",
+        prompt: "",
+        productName: "",
+        brand: "",
+        scentNotes: "",
+        styleKeywords: "",
+        brandColor: "",
+        taglineDirection: "",
+      };
+    case "languagePrompt":
+      return {
+        label: "Language Prompt",
+        prompt: "",
+        language: "sv",
+        contentType: "hero",
+        isGenerating: false,
+      };
     default:
       return { label: "Node" };
   }

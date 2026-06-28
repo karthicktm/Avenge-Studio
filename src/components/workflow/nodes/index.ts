@@ -15,3 +15,5 @@ export { default as VideoConcatNode } from "./VideoConcatNode";
 export { default as VideoSubtitlesNode } from "./VideoSubtitlesNode";
 export { default as VideoTrimNode } from "./VideoTrimNode";
 export { default as VideoTransitionNode } from "./VideoTransitionNode";
+export { default as ProductInputNode } from "./ProductInputNode";
+export { default as LanguagePromptNode } from "./LanguagePromptNode";

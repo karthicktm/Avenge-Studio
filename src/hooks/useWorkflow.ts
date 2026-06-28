@@ -516,6 +516,25 @@ function getDefaultNodeData(type: NodeType): WorkflowNode["data"] {
         duration: 0.5,
         easing: "easeInOut",
       };
+    case "productInput":
+      return {
+        label: "Product Input",
+        prompt: "",
+        productName: "",
+        brand: "",
+        scentNotes: "",
+        styleKeywords: "",
+        brandColor: "",
+        taglineDirection: "",
+      };
+    case "languagePrompt":
+      return {
+        label: "Language Prompt",
+        prompt: "",
+        language: "sv",
+        contentType: "hero",
+        isGenerating: false,
+      };
     default:
       return { label: "Node" };
   }

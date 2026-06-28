@@ -115,6 +115,22 @@ export function parseFalError(errorMessage: string): ErrorResponse {
     };
   }
 
+  // Validation errors (422 Unprocessable Entity from fal.ai)
+  if (
+    msg.includes("422") ||
+    msg.includes("unprocessable") ||
+    msg.includes("validation") ||
+    msg.includes("invalid input") ||
+    msg.includes("value_error") ||
+    msg.includes("field required") ||
+    msg.includes("not a valid")
+  ) {
+    return {
+      error: "Invalid generation parameters. Please try adjusting your settings.",
+      code: "INVALID_PROMPT",
+    };
+  }
+
   // Timeout
   if (msg.includes("timeout") || msg.includes("timed out")) {
     return {

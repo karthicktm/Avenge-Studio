@@ -170,6 +170,7 @@ export default function ImagePromptForm({
   // Handle initial model/subModel from URL params
   useEffect(() => {
     if (initialModel) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setModel(initialModel);
     }
     if (initialSubModel) {
@@ -180,6 +181,7 @@ export default function ImagePromptForm({
   // Handle recreate data
   useEffect(() => {
     if (recreateData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPrompt(recreateData.prompt);
       // Clear any existing reference images for a fresh start
       setReferenceImages([]);

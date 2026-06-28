@@ -105,6 +105,7 @@ function WorkflowPageContent() {
           setIsLoading(false);
         });
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoading(false);
     }
   }, [searchParams, setNodes, setEdges]);
@@ -231,6 +232,7 @@ function WorkflowPageContent() {
 
     // Don't auto-save empty new workflows
     if (!workflowId && nodes.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasUnsavedChanges(false);
       return;
     }

@@ -33,12 +33,12 @@ const API_KEY_VALIDATORS: Record<
   }
 > = {
   fal: {
-    // fal.ai keys are: UUID:32-char-hex (e.g., 8cc1454c-94ce-4036-a5eb-47391dbf99dd:b6982599b42886db4513d7a2096f5604)
+    // fal.ai keys are: UUID:secret (e.g., 8cc1454c-94ce-4036-a5eb-47391dbf99dd:b6982599b42886db4513d7a2096f5604)
     pattern:
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9a-f]{32}$/i,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[a-z0-9]{16,}$/i,
     example:
       "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    description: "UUID followed by colon and 32-character secret",
+    description: "UUID followed by colon and secret key",
   },
 };
 
@@ -104,6 +104,7 @@ export default function ApiKeysModal({ isOpen, onClose }: ApiKeysModalProps) {
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchApiKeys();
     } else {
       // Reset dropdown state when modal closes
@@ -208,7 +209,8 @@ export default function ApiKeysModal({ isOpen, onClose }: ApiKeysModalProps) {
         fetchApiKeys();
         toast.success("API key saved");
       } else {
-        toast.error("Failed to save API key");
+        const result = await response.json().catch(() => ({}));
+        toast.error(result.error || "Failed to save API key");
       }
     } catch {
       toast.error("Failed to save API key");

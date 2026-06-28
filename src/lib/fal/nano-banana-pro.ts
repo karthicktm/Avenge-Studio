@@ -50,8 +50,6 @@ export interface NanoBananaProInput {
   num_images?: number;
   /** Enable web search for latest information. Default: false */
   enable_web_search?: boolean;
-  /** Limit generations per prompt round to 1. Default: false */
-  single_generation?: boolean;
   /** Enable safety checker on output. Default: true */
   enable_safety_checker?: boolean;
 }
@@ -149,7 +147,7 @@ export class NanoBananaProClient {
         output_format: input.output_format || DEFAULT_OUTPUT_FORMAT,
         num_images: input.num_images || 1,
         enable_web_search: input.enable_web_search ?? false,
-        limit_generations: input.single_generation ?? false,
+        enable_safety_checker: input.enable_safety_checker ?? true,
       },
       logs: true,
       onQueueUpdate: options?.onQueueUpdate,

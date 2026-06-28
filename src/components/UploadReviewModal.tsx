@@ -78,9 +78,19 @@ export default function UploadReviewModal({
   const [characterName, setCharacterName] = useState("");
   const isEditMode = !!editCharacter;
 
+  const getImageAspectRatio = (src: string): Promise<number> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img.width / img.height);
+      img.onerror = () => resolve(1);
+      img.src = src;
+    });
+  };
+
   // Load existing character data in edit mode
   useEffect(() => {
     if (editCharacter) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCharacterName(editCharacter.name);
       const loadExistingImages = async () => {
         const existingImages: UploadedImage[] = await Promise.all(
@@ -154,15 +164,6 @@ export default function UploadReviewModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFiles, isEditMode]);
 
-  const getImageAspectRatio = (src: string): Promise<number> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(img.width / img.height);
-      img.onerror = () => resolve(1);
-      img.src = src;
-    });
-  };
-
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -174,6 +175,7 @@ export default function UploadReviewModal({
     } else {
       // Reset form when modal closes
       if (!editCharacter) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCharacterName("");
         setImages([]);
       }
