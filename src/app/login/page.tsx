@@ -57,7 +57,6 @@ function LoginForm() {
 
       // Redirect to original page or home on success
       router.push(redirectTo);
-      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
