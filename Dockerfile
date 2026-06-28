@@ -13,7 +13,7 @@ RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
@@ -35,7 +35,7 @@ RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # Copy dependencies from deps stage (includes generated Prisma client)
 COPY --from=deps /app/node_modules ./node_modules
@@ -73,7 +73,7 @@ RUN apk add --no-cache libc6-compat openssl curl
 WORKDIR /app
 
 # Install pnpm for running migrations
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
