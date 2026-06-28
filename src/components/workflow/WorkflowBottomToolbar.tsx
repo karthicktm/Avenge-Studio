@@ -6,6 +6,7 @@ import Dagre from "@dagrejs/dagre";
 import { apiFetch } from "@/lib/csrf";
 import { useWorkflowContext } from "./WorkflowContext";
 import type { NodeType } from "./types";
+import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 
 export interface SavedWorkflow {
   id: string;
@@ -196,6 +197,24 @@ const FolderIcon = () => (
     strokeLinejoin="round"
   >
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const TemplatesIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
   </svg>
 );
 
@@ -421,12 +440,14 @@ export default function WorkflowBottomToolbar({
     zoomOut,
     screenToFlowPosition,
     setNodes,
+    setEdges,
     getNodes,
     getEdges,
   } = useReactFlow();
   const viewport = useViewport();
   const [showZoomPopup, setShowZoomPopup] = useState(false);
   const [showNodesMenu, setShowNodesMenu] = useState(false);
+  const [showTemplatesMenu, setShowTemplatesMenu] = useState(false);
   const [showWorkflowsMenu, setShowWorkflowsMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [workflowSearchQuery, setWorkflowSearchQuery] = useState("");
@@ -435,6 +456,7 @@ export default function WorkflowBottomToolbar({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<HTMLDivElement>(null);
+  const templatesRef = useRef<HTMLDivElement>(null);
   const workflowsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const workflowSearchInputRef = useRef<HTMLInputElement>(null);
@@ -488,6 +510,23 @@ export default function WorkflowBottomToolbar({
       }
     },
     [currentWorkflowId, onNewWorkflow]
+  );
+
+  // Load a template onto the canvas
+  const handleLoadTemplate = useCallback(
+    (template: WorkflowTemplate) => {
+      const existingNodes = getNodes();
+      if (existingNodes.length > 0) {
+        if (!confirm(`Load "${template.name}"? This will replace your current workflow.`)) {
+          return;
+        }
+      }
+      setNodes(template.nodes);
+      setEdges(template.edges);
+      setShowTemplatesMenu(false);
+      setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 50);
+    },
+    [getNodes, setNodes, setEdges, fitView]
   );
 
   // Auto-layout nodes using dagre for proper graph layout
@@ -644,6 +683,9 @@ export default function WorkflowBottomToolbar({
         setShowNodesMenu(false);
         setSearchQuery("");
       }
+      if (templatesRef.current && !templatesRef.current.contains(event.target as Node)) {
+        setShowTemplatesMenu(false);
+      }
       if (
         workflowsRef.current &&
         !workflowsRef.current.contains(event.target as Node)
@@ -674,6 +716,7 @@ export default function WorkflowBottomToolbar({
       if (event.key === "Escape") {
         setShowNodesMenu(false);
         setShowZoomPopup(false);
+        setShowTemplatesMenu(false);
         setShowWorkflowsMenu(false);
         setSearchQuery("");
         setWorkflowSearchQuery("");
@@ -856,6 +899,37 @@ export default function WorkflowBottomToolbar({
                     No nodes found
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Templates Button with Dropdown */}
+        <div className="relative" ref={templatesRef}>
+          <ToolbarButton
+            onClick={() => setShowTemplatesMenu(!showTemplatesMenu)}
+            active={showTemplatesMenu}
+            title="Workflow Templates"
+          >
+            <TemplatesIcon />
+          </ToolbarButton>
+
+          {showTemplatesMenu && (
+            <div className="absolute top-0 left-full ml-2 w-56 rounded-xl border border-white/10 bg-zinc-900/95 shadow-xl backdrop-blur-xl">
+              <div className="px-3 py-2">
+                <span className="text-[10px] font-medium tracking-wider text-white/40 uppercase">Templates</span>
+              </div>
+              <div className="px-1 pb-1">
+                {WORKFLOW_TEMPLATES.map((template) => (
+                  <button
+                    key={template.name}
+                    onClick={() => handleLoadTemplate(template)}
+                    className="flex w-full flex-col gap-0.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/10"
+                  >
+                    <span className="text-xs font-medium text-white">{template.name}</span>
+                    <span className="text-[10px] text-white/40">{template.description}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
