@@ -222,6 +222,28 @@ export interface VideoTransitionNodeData extends BaseNodeData {
   easing?: "linear" | "easeIn" | "easeOut" | "easeInOut";
 }
 
+// ProductInput node data type
+export interface ProductInputNodeData extends BaseNodeData {
+  prompt?: string;           // constructed context string (output handle carries this)
+  productName?: string;
+  brand?: string;
+  scentNotes?: string;
+  styleKeywords?: string;
+  brandColor?: string;
+  taglineDirection?: string;
+}
+
+// LanguagePrompt node data type
+export interface LanguagePromptNodeData extends BaseNodeData {
+  prompt?: string;           // the AI-generated image-gen prompt (output handle carries this)
+  language?: "sv" | "no" | "en";
+  contentType?: "hero" | "square" | "story";
+  isGenerating?: boolean;
+  headline?: string;         // for display only
+  bodyCopy?: string;         // for display only
+  cta?: string;              // for display only
+}
+
 // Union type for all node data
 export type WorkflowNodeData =
   | ImageInputNodeData
@@ -240,7 +262,9 @@ export type WorkflowNodeData =
   | VideoConcatNodeData
   | VideoSubtitlesNodeData
   | VideoTrimNodeData
-  | VideoTransitionNodeData;
+  | VideoTransitionNodeData
+  | ProductInputNodeData
+  | LanguagePromptNodeData;
 
 // Generic workflow node type
 export type WorkflowNode = Node<WorkflowNodeData, string>;
@@ -265,7 +289,9 @@ export type NodeType =
   | "videoConcat"
   | "videoSubtitles"
   | "videoTrim"
-  | "videoTransition";
+  | "videoTransition"
+  | "productInput"
+  | "languagePrompt";
 
 // Sidebar node item for drag and drop
 export interface SidebarNodeItem {
