@@ -55,8 +55,9 @@ function LoginForm() {
         return;
       }
 
-      // Redirect to original page or home on success
-      router.push(redirectTo);
+      // Hard redirect so the browser sends the new session cookie and
+      // middleware sees it on a fresh request, bypassing the Router Cache.
+      window.location.href = redirectTo;
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
