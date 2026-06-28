@@ -16,10 +16,6 @@ const generatePromptSchema = z.object({
   contentType: z.enum(["hero", "square", "story"]),
 });
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   const { error: authError } = await requireAuth();
   if (authError) return authError;
@@ -33,6 +29,14 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: createRateLimitHeaders(rateLimitResult) }
     );
   }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json(
+      { error: "Anthropic API key not configured on the server." },
+      { status: 503 }
+    );
+  }
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   try {
     const body = await request.json();
@@ -73,7 +77,7 @@ Your response must be valid JSON with this exact structure:
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [
         {
           role: "user",

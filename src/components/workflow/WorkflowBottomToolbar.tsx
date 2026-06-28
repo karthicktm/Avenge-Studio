@@ -556,7 +556,11 @@ export default function WorkflowBottomToolbar({
     nodes.forEach((node) => {
       // Estimate height based on node type
       let nodeHeight = 120; // Default for small nodes like Prompt
-      if (node.type === "file" || node.type === "imageInput") {
+      if (node.type === "productInput") {
+        nodeHeight = 320;
+      } else if (node.type === "languagePrompt") {
+        nodeHeight = 200;
+      } else if (node.type === "file" || node.type === "imageInput") {
         nodeHeight = 400;
       } else if (
         node.type === "nanoBananaPro" ||

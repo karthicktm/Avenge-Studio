@@ -2,8 +2,8 @@
 
 import { memo, useCallback } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
+import { useReactFlow } from "@xyflow/react";
 import BaseNode from "./BaseNode";
-import { useNodeUpdate } from "./useNodeUpdate";
 import type { ProductInputNodeData } from "../types";
 
 const FIELDS: {
@@ -58,15 +58,27 @@ const ProductInputNode = memo(function ProductInputNode({
   data,
   selected,
 }: NodeProps<Node<ProductInputNodeData>>) {
-  const updateData = useNodeUpdate(id);
+  const { setNodes } = useReactFlow();
 
   const handleChange = useCallback(
     (key: keyof Omit<ProductInputNodeData, "label" | "prompt">, value: string) => {
-      const nextData = { ...data, [key]: value };
-      updateData(key as string, value);
-      updateData("prompt", buildPrompt(nextData));
+      const nextData = { ...(data as ProductInputNodeData), [key]: value };
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  [key]: value,
+                  prompt: buildPrompt(nextData),
+                },
+              }
+            : n
+        )
+      );
     },
-    [data, updateData]
+    [id, data, setNodes]
   );
 
   return (

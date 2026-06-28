@@ -265,7 +265,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-se",
       sourceHandle: "prompt",
       target: "tpl-nbp-se-hero",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -273,7 +273,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-se",
       sourceHandle: "prompt",
       target: "tpl-nbp-se-sq",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -281,7 +281,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-se",
       sourceHandle: "prompt",
       target: "tpl-nbp-se-st",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -289,7 +289,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-no",
       sourceHandle: "prompt",
       target: "tpl-nbp-no-hero",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -297,7 +297,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-no",
       sourceHandle: "prompt",
       target: "tpl-nbp-no-sq",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -305,7 +305,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-no",
       sourceHandle: "prompt",
       target: "tpl-nbp-no-st",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -313,7 +313,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-en",
       sourceHandle: "prompt",
       target: "tpl-nbp-en-hero",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -321,7 +321,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-en",
       sourceHandle: "prompt",
       target: "tpl-nbp-en-sq",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
     {
@@ -329,7 +329,7 @@ export const parfymBannerTemplate: WorkflowTemplate = {
       source: "tpl-lp-en",
       sourceHandle: "prompt",
       target: "tpl-nbp-en-st",
-      targetHandle: null,
+      targetHandle: undefined,
       type: "gradient",
     },
 

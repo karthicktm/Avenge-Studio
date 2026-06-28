@@ -2000,6 +2000,16 @@ export function useWorkflowExecution() {
           return { canExecute: true };
         }
 
+        case "languagePrompt": {
+          const hasConnectedProduct = inputs.some(
+            (input) => input.handleType === "prompt"
+          );
+          if (!hasConnectedProduct) {
+            return { canExecute: false, reason: "Connect a Product Input node" };
+          }
+          return { canExecute: true };
+        }
+
         default:
           return {
             canExecute: false,
