@@ -482,6 +482,20 @@ export function useWorkflowExecution() {
           isGenerating: false,
         });
 
+        // Propagate image URL to any downstream Preview nodes
+        if (generatedImageUrl) {
+          const allEdges = getEdges();
+          const allNodes = getNodes();
+          for (const edge of allEdges) {
+            if (edge.source === nodeId && edge.sourceHandle === "image") {
+              const targetNode = allNodes.find((n) => n.id === edge.target && n.type === "preview");
+              if (targetNode) {
+                updateNodeData(targetNode.id, { previewUrl: generatedImageUrl });
+              }
+            }
+          }
+        }
+
         // Save the generated image to the database so it appears in assets
         if (generatedImageUrl) {
           try {
@@ -506,7 +520,7 @@ export function useWorkflowExecution() {
         throw new Error("Image generation failed");
       }
     },
-    [extractPrompt, extractImageUrl, updateNodeData, fetchCharacterImages, fetchProductImages]
+    [extractPrompt, extractImageUrl, updateNodeData, fetchCharacterImages, fetchProductImages, getEdges, getNodes]
   );
 
   /**
