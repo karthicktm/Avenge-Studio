@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
   const { texts, language } = parseResult.data;
   const langName = LANGUAGE_NAMES[language];
 
+  console.log("[translate-text] language:", language, "texts:", JSON.stringify(texts).slice(0, 200));
   const apiKey = await getApiKey(user!.id);
   if (!apiKey) {
     // No FAL key configured — return originals so compositing still proceeds

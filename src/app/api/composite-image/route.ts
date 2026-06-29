@@ -115,15 +115,18 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
+  console.log("[composite-image] body:", JSON.stringify(body).slice(0, 500));
   const parseResult = compositeSchema.safeParse(body);
   if (!parseResult.success) {
+    console.error("[composite-image] Zod validation failed:", parseResult.error.issues);
     return NextResponse.json(
-      { error: parseResult.error.issues[0]?.message ?? "Invalid request" },
+      { error: parseResult.error.issues[0]?.message ?? "Invalid request", issues: parseResult.error.issues },
       { status: 400 }
     );
   }
 
   const { imageUrl, textZones } = parseResult.data;
+  console.log("[composite-image] imageUrl:", imageUrl, "zones:", textZones.length);
 
   let imageBuffer: Buffer;
   if (imageUrl.startsWith("/")) {
@@ -240,9 +243,10 @@ export async function POST(request: NextRequest) {
       .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
       .png()
       .toBuffer();
-  } catch {
+  } catch (e) {
+    console.error("[composite-image] sharp failed:", e);
     return NextResponse.json(
-      { error: "Image compositing failed" },
+      { error: "Image compositing failed: " + (e instanceof Error ? e.message : String(e)) },
       { status: 500 }
     );
   }

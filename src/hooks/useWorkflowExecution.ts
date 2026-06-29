@@ -1551,6 +1551,7 @@ export function useWorkflowExecution() {
       updateNodeData(nodeId, { isGenerating: true, error: undefined });
 
       try {
+        console.log("[TextComposite] imageUrl:", imageUrl, "zones:", textZones.length, "lang:", nodeData.language);
         // Step 1: translate text content to target language (falls back to originals on any failure)
         const translateRes = await apiFetch("/api/translate-text", {
           method: "POST",
@@ -1594,24 +1595,40 @@ export function useWorkflowExecution() {
         }));
 
         // Step 2: composite translated text onto master image
+        const compositePayload = { imageUrl, textZones: translatedZones };
+        console.log("[TextComposite] composite payload:", JSON.stringify(compositePayload).slice(0, 400));
         const compositeRes = await apiFetch("/api/composite-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl, textZones: translatedZones }),
+          body: JSON.stringify(compositePayload),
           timeout: 60000,
         });
 
+        console.log("[TextComposite] composite status:", compositeRes.status);
         if (!compositeRes.ok) {
           let msg = "Compositing failed";
           try {
-            const err = await compositeRes.json() as { error?: string };
+            const err = await compositeRes.json() as { error?: string; issues?: unknown[] };
+            console.error("[TextComposite] composite error body:", err);
             msg = err.error ?? msg;
-          } catch { /* ignore parse error */ }
+          } catch (parseErr) {
+            console.error("[TextComposite] composite response not JSON:", parseErr);
+          }
           updateNodeData(nodeId, { isGenerating: false, error: msg });
           return { success: false, error: msg };
         }
 
-        const { url } = (await compositeRes.json()) as { url: string }; // compositeRes.ok is true here
+        const compositeBody = await compositeRes.text();
+        console.log("[TextComposite] composite ok body:", compositeBody.slice(0, 200));
+        let url: string;
+        try {
+          url = (JSON.parse(compositeBody) as { url: string }).url;
+        } catch (parseErr) {
+          console.error("[TextComposite] composite body not JSON:", parseErr, compositeBody.slice(0, 200));
+          const msg = "Composite response was not JSON";
+          updateNodeData(nodeId, { isGenerating: false, error: msg });
+          return { success: false, error: msg };
+        }
 
         updateNodeData(nodeId, {
           outputUrl: url,
