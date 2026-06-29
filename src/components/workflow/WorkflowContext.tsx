@@ -12,6 +12,7 @@ export const HANDLE_COLORS: Record<string, string> = {
   result: "#6EDDB3", // Green - final result (output node only)
   media: "#F59E0B", // Orange - generic media
   audio: "#60A5FA", // Blue - audio data
+  textConfig: "#2DD4BF", // Teal - text zone configuration data
   firstFrame: "#F59E0B", // Orange - first frame image
   lastFrame: "#F59E0B", // Orange - last frame image
 };
@@ -60,6 +61,7 @@ export const COMPATIBLE_HANDLES: Record<string, string[]> = {
   media: ["media", "video", "image", "result"],
   audio: ["audio"],
   transcript: ["transcript", "prompt"],
+  textConfig: ["textConfig"],
   // Concat node specific inputs (video1-video10)
   video1: ["video1"],
   video2: ["video2"],

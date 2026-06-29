@@ -222,6 +222,26 @@ export interface VideoTransitionNodeData extends BaseNodeData {
   easing?: "linear" | "easeIn" | "easeOut" | "easeInOut";
 }
 
+// Text overlay types for BannerInputNode
+export type TextPosition =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "middle-left"
+  | "middle-center"
+  | "middle-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
+
+export interface TextZone {
+  content: string;
+  font: "Inter" | "Poppins" | "Montserrat" | "Oswald" | "Bebas Neue";
+  size: number; // px
+  color: string; // hex e.g. "#FFFFFF"
+  position: TextPosition;
+}
+
 // ProductInput node data type
 export interface ProductInputNodeData extends BaseNodeData {
   prompt?: string;           // constructed context string (output handle carries this)
@@ -244,6 +264,29 @@ export interface LanguagePromptNodeData extends BaseNodeData {
   cta?: string;              // for display only
 }
 
+// BannerInput node data type
+export interface BannerInputNodeData extends BaseNodeData {
+  productName?: string;
+  brand?: string;
+  scentNotes?: string;
+  styleKeywords?: string;
+  brandColor?: string;
+  taglineDirection?: string;
+  textZones: [TextZone, TextZone, TextZone]; // [headline, bodyCopy, cta]
+  referenceImageUrl?: string;
+  dynamicPrompt?: string;
+  prompt?: string; // computed output — carries the built image-gen prompt
+}
+
+// TextComposite node data type
+export interface TextCompositeNodeData extends BaseNodeData {
+  language: "sv" | "no";
+  imageUrl?: string; // received master image (input)
+  textConfig?: TextZone[]; // received from BannerInputNode (input)
+  outputUrl?: string; // composited result (output)
+  isGenerating?: boolean;
+}
+
 // Union type for all node data
 export type WorkflowNodeData =
   | ImageInputNodeData
@@ -264,7 +307,9 @@ export type WorkflowNodeData =
   | VideoTrimNodeData
   | VideoTransitionNodeData
   | ProductInputNodeData
-  | LanguagePromptNodeData;
+  | LanguagePromptNodeData
+  | BannerInputNodeData
+  | TextCompositeNodeData;
 
 // Generic workflow node type
 export type WorkflowNode = Node<WorkflowNodeData, string>;
@@ -291,7 +336,9 @@ export type NodeType =
   | "videoTrim"
   | "videoTransition"
   | "productInput"
-  | "languagePrompt";
+  | "languagePrompt"
+  | "bannerInput"
+  | "textComposite";
 
 // Sidebar node item for drag and drop
 export interface SidebarNodeItem {
