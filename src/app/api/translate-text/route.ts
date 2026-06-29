@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { fal } from "@fal-ai/client";
-import { configureFalClient } from "@/lib/fal/client";
-import { getApiKey } from "@/lib/services/apiKeyService";
 import {
   checkRateLimit,
   getClientIdentifier,
@@ -26,7 +23,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 };
 
 export async function POST(request: NextRequest) {
-  const { user, error: authError } = await requireAuth();
+  const { error: authError } = await requireAuth();
   if (authError) return authError;
 
   const clientId = getClientIdentifier(request);
@@ -50,36 +47,47 @@ export async function POST(request: NextRequest) {
   const { texts, language } = parseResult.data;
   const langName = LANGUAGE_NAMES[language];
 
-  const apiKey = await getApiKey(user!.id);
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "No API key. Add your fal.ai key in Settings.", code: "NO_API_KEY" },
-      { status: 400 }
-    );
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) {
+    // No translation key — return originals rather than failing
+    return NextResponse.json({
+      headline: texts.headline,
+      bodyCopy: texts.bodyCopy,
+      cta: texts.cta,
+    });
   }
-  configureFalClient(apiKey);
 
-  const prompt = `Translate these three banner text items to ${langName}. Return ONLY a JSON object with exactly these keys: "headline", "bodyCopy", "cta". No explanation, no markdown, just the JSON object.
+  const userPrompt = `Translate these three banner text items to ${langName}. Return ONLY a JSON object with exactly these keys: "headline", "bodyCopy", "cta". No explanation, no markdown, just the JSON object.
 
 Headline: ${texts.headline}
 Body copy: ${texts.bodyCopy}
 CTA: ${texts.cta}`;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (fal as any).subscribe("fal-ai/any-llm", {
-      input: {
-        model: "google/gemini-flash-2-0",
-        prompt,
-        max_tokens: 300,
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
       },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 300,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
     });
 
-    const raw: string = result?.data?.output ?? result?.output ?? "";
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("No JSON in response");
+    if (!response.ok) {
+      throw new Error(`Anthropic API error: ${response.status}`);
     }
+
+    const data = await response.json() as {
+      content: Array<{ type: string; text: string }>;
+    };
+    const raw = data.content.find((b) => b.type === "text")?.text ?? "";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON in response");
     const translated = JSON.parse(jsonMatch[0]) as Record<string, string>;
 
     return NextResponse.json({
