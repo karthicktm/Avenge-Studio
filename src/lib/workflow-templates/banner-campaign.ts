@@ -3,13 +3,13 @@ import type { WorkflowTemplate } from "./parfym-banner";
 
 export const bannerCampaignTemplate: WorkflowTemplate = {
   name: "Banner Campaign",
-  description: "Generate EN / SE / NO banner masters in parallel — each fully AI-generated in its own language",
+  description: "Generate a master banner then localise text to SE/NO via AI image editing",
   nodes: [
     // Column 1 — banner input
     {
       id: "tpl-banner",
       type: "bannerInput",
-      position: { x: 50, y: 300 },
+      position: { x: 50, y: 250 },
       data: {
         label: "Banner Input",
         productName: "",
@@ -29,189 +29,111 @@ export const bannerCampaignTemplate: WorkflowTemplate = {
       } as WorkflowNode["data"],
     },
 
-    // Column 2 — language prompt adapters (parallel)
+    // Column 2 — master image generation
     {
-      id: "tpl-lp-en",
-      type: "languagePrompt",
-      position: { x: 440, y: 50 },
+      id: "tpl-gen",
+      type: "nanoBananaPro",
+      position: { x: 450, y: 250 },
       data: {
-        label: "English Prompt",
-        language: "en",
-        contentType: "hero",
-        isGenerating: false,
-      } as WorkflowNode["data"],
-    },
-    {
-      id: "tpl-lp-se",
-      type: "languagePrompt",
-      position: { x: 440, y: 300 },
-      data: {
-        label: "Swedish Prompt",
-        language: "sv",
-        contentType: "hero",
-        isGenerating: false,
-      } as WorkflowNode["data"],
-    },
-    {
-      id: "tpl-lp-no",
-      type: "languagePrompt",
-      position: { x: 440, y: 550 },
-      data: {
-        label: "Norwegian Prompt",
-        language: "no",
-        contentType: "hero",
+        label: "Master Image (EN)",
+        mode: "text-to-image",
+        aspectRatio: "16:9",
+        resolution: "1K",
+        outputFormat: "png",
+        numImages: 1,
+        enableWebSearch: false,
+        enableSafetyChecker: true,
         isGenerating: false,
       } as WorkflowNode["data"],
     },
 
-    // Column 3 — image generation (parallel)
+    // Column 3 — language variants (parallel AI image edit)
     {
-      id: "tpl-gen-en",
-      type: "nanoBananaPro",
-      position: { x: 830, y: 50 },
-      data: {
-        label: "English Banner",
-        mode: "text-to-image",
-        aspectRatio: "16:9",
-        resolution: "1K",
-        outputFormat: "png",
-        numImages: 1,
-        enableWebSearch: false,
-        enableSafetyChecker: true,
-        isGenerating: false,
-      } as WorkflowNode["data"],
-    },
-    {
-      id: "tpl-gen-se",
-      type: "nanoBananaPro",
-      position: { x: 830, y: 300 },
+      id: "tpl-composite-se",
+      type: "textComposite",
+      position: { x: 850, y: 50 },
       data: {
         label: "Swedish Banner",
-        mode: "text-to-image",
-        aspectRatio: "16:9",
-        resolution: "1K",
-        outputFormat: "png",
-        numImages: 1,
-        enableWebSearch: false,
-        enableSafetyChecker: true,
+        language: "sv",
         isGenerating: false,
       } as WorkflowNode["data"],
     },
     {
-      id: "tpl-gen-no",
-      type: "nanoBananaPro",
-      position: { x: 830, y: 550 },
+      id: "tpl-composite-no",
+      type: "textComposite",
+      position: { x: 850, y: 420 },
       data: {
         label: "Norwegian Banner",
-        mode: "text-to-image",
-        aspectRatio: "16:9",
-        resolution: "1K",
-        outputFormat: "png",
-        numImages: 1,
-        enableWebSearch: false,
-        enableSafetyChecker: true,
+        language: "no",
         isGenerating: false,
       } as WorkflowNode["data"],
     },
 
     // Column 4 — previews
     {
-      id: "tpl-preview-en",
-      type: "preview",
-      position: { x: 1200, y: 50 },
-      data: { label: "Preview EN" } as WorkflowNode["data"],
-    },
-    {
       id: "tpl-preview-se",
       type: "preview",
-      position: { x: 1200, y: 300 },
+      position: { x: 1230, y: 50 },
       data: { label: "Preview SE" } as WorkflowNode["data"],
     },
     {
       id: "tpl-preview-no",
       type: "preview",
-      position: { x: 1200, y: 550 },
+      position: { x: 1230, y: 420 },
       data: { label: "Preview NO" } as WorkflowNode["data"],
     },
   ],
 
   edges: [
-    // BannerInput → LanguagePrompt EN
+    // BannerInput → NanoBananaPro (prompt)
     {
       id: "tpl-e1",
       source: "tpl-banner",
       sourceHandle: "prompt",
-      target: "tpl-lp-en",
-      targetHandle: "prompt",
+      target: "tpl-gen",
+      targetHandle: undefined,
       type: "gradient",
     },
-    // BannerInput → LanguagePrompt SE
+    // BannerInput → NanoBananaPro (reference image, optional)
     {
       id: "tpl-e2",
       source: "tpl-banner",
-      sourceHandle: "prompt",
-      target: "tpl-lp-se",
-      targetHandle: "prompt",
+      sourceHandle: "image",
+      target: "tpl-gen",
+      targetHandle: "image1",
       type: "gradient",
     },
-    // BannerInput → LanguagePrompt NO
+    // NanoBananaPro → TextComposite SE (master image to edit)
     {
       id: "tpl-e3",
-      source: "tpl-banner",
-      sourceHandle: "prompt",
-      target: "tpl-lp-no",
-      targetHandle: "prompt",
+      source: "tpl-gen",
+      sourceHandle: "image",
+      target: "tpl-composite-se",
+      targetHandle: "image",
       type: "gradient",
     },
-    // LanguagePrompt EN → NanoBananaPro EN
+    // NanoBananaPro → TextComposite NO (master image to edit)
     {
       id: "tpl-e4",
-      source: "tpl-lp-en",
-      sourceHandle: "prompt",
-      target: "tpl-gen-en",
-      targetHandle: undefined,
+      source: "tpl-gen",
+      sourceHandle: "image",
+      target: "tpl-composite-no",
+      targetHandle: "image",
       type: "gradient",
     },
-    // LanguagePrompt SE → NanoBananaPro SE
+    // TextComposite SE → Preview SE
     {
       id: "tpl-e5",
-      source: "tpl-lp-se",
-      sourceHandle: "prompt",
-      target: "tpl-gen-se",
-      targetHandle: undefined,
-      type: "gradient",
-    },
-    // LanguagePrompt NO → NanoBananaPro NO
-    {
-      id: "tpl-e6",
-      source: "tpl-lp-no",
-      sourceHandle: "prompt",
-      target: "tpl-gen-no",
-      targetHandle: undefined,
-      type: "gradient",
-    },
-    // NanoBananaPro EN → Preview EN
-    {
-      id: "tpl-e7",
-      source: "tpl-gen-en",
-      sourceHandle: "image",
-      target: "tpl-preview-en",
-      targetHandle: "media",
-      type: "gradient",
-    },
-    // NanoBananaPro SE → Preview SE
-    {
-      id: "tpl-e8",
-      source: "tpl-gen-se",
+      source: "tpl-composite-se",
       sourceHandle: "image",
       target: "tpl-preview-se",
       targetHandle: "media",
       type: "gradient",
     },
-    // NanoBananaPro NO → Preview NO
+    // TextComposite NO → Preview NO
     {
-      id: "tpl-e9",
-      source: "tpl-gen-no",
+      id: "tpl-e6",
+      source: "tpl-composite-no",
       sourceHandle: "image",
       target: "tpl-preview-no",
       targetHandle: "media",

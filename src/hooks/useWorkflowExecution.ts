@@ -21,8 +21,6 @@ import type {
   VideoTransitionNodeData,
   LanguagePromptNodeData,
   TextCompositeNodeData,
-  BannerInputNodeData,
-  TextZone,
 } from "@/components/workflow/types";
 import { useGenerationStore } from "@/lib/stores/generationStore";
 
@@ -327,22 +325,6 @@ export function useWorkflowExecution() {
     []
   );
 
-  /**
-   * Extract text zones from a connected BannerInput / textConfig node
-   */
-  const extractTextConfig = useCallback(
-    (inputs: ConnectedInput[]): TextZone[] | undefined => {
-      const textConfigInput = inputs.find(
-        (input) => input.handleType === "textConfig"
-      );
-      if (textConfigInput) {
-        const d = textConfigInput.data as BannerInputNodeData;
-        return d.textZones;
-      }
-      return undefined;
-    },
-    []
-  );
 
   /**
    * Update a node's data after execution
@@ -1521,7 +1503,8 @@ export function useWorkflowExecution() {
   );
 
   /**
-   * Execute TextComposite node — translates text and composites it onto the master image
+   * Execute TextComposite node — uses fal-ai/nano-banana-pro/edit to translate
+   * all text in the master image into the target language in a single AI call.
    */
   const executeTextComposite = useCallback(
     async (
@@ -1529,149 +1512,94 @@ export function useWorkflowExecution() {
       nodeData: TextCompositeNodeData,
       inputs: ConnectedInput[]
     ): Promise<ExecutionResult> => {
-      // Extract master image from connected image gen node
+      // Extract master image from upstream image gen node
       const imageInput = inputs.find(
         (input) =>
           input.handleType === "image" ||
           input.nodeType === "nanoBananaPro" ||
           input.nodeType === "seedream45" ||
-          input.nodeType === "file" ||
-          input.nodeType === "bannerInput"
+          input.nodeType === "file"
       );
-      let imageUrl: string | undefined;
-      if (imageInput) {
-        if (imageInput.nodeType === "bannerInput") {
-          const d = imageInput.data as BannerInputNodeData;
-          imageUrl = d.referenceImageUrl;
-        } else {
-          const d = imageInput.data as { imageUrl?: string };
-          imageUrl = d.imageUrl;
-        }
-      }
-
-      const textZones = extractTextConfig(inputs);
+      const imageUrl = (imageInput?.data as { imageUrl?: string } | undefined)?.imageUrl;
 
       if (!imageUrl) {
         const msg = "No master image yet — run the image generation node first.";
         updateNodeData(nodeId, { error: msg });
         return { success: false, error: msg };
       }
-      if (!textZones || textZones.length === 0) {
-        const msg = "Connect a Banner Input node to supply text zones.";
-        updateNodeData(nodeId, { error: msg });
-        return { success: false, error: msg };
-      }
+
+      const LANGUAGE_NAMES: Record<string, string> = { sv: "Swedish", no: "Norwegian", en: "English" };
+      const langName = LANGUAGE_NAMES[nodeData.language ?? "sv"] ?? "Swedish";
+
+      const prompt =
+        `Translate every piece of text visible in this banner image into ${langName}. ` +
+        `Keep the visual design, layout, typography, colors, and all non-text elements ` +
+        `pixel-perfect identical. Only change the language of the text.`;
 
       updateNodeData(nodeId, { isGenerating: true, error: undefined });
 
       try {
-        console.log("[TextComposite] imageUrl:", imageUrl, "zones:", textZones.length, "lang:", nodeData.language);
-        // Step 1: translate text content to target language (falls back to originals on any failure)
-        const translateRes = await apiFetch("/api/translate-text", {
+        console.log("[TextComposite] editing master image for lang:", langName, "url:", imageUrl);
+
+        const response = await apiFetch("/api/generate-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            texts: {
-              headline: textZones[0]?.content ?? "",
-              bodyCopy: textZones[1]?.content ?? "",
-              cta: textZones[2]?.content ?? "",
-            },
-            language: nodeData.language ?? "sv",
+            prompt,
+            imageUrls: [imageUrl],
+            aspectRatio: "16:9",
+            resolution: "1K",
+            outputFormat: "png",
+            numImages: 1,
+            enableSafetyChecker: true,
           }),
-          timeout: 30000,
+          timeout: 120000,
         });
 
-        // Safely parse translate response — fall back to originals on any parse failure
-        let translated: { headline: string; bodyCopy: string; cta: string } = {
-          headline: textZones[0]?.content ?? "",
-          bodyCopy: textZones[1]?.content ?? "",
-          cta: textZones[2]?.content ?? "",
-        };
-        if (translateRes.ok) {
-          try {
-            const body = await translateRes.json() as { headline?: string; bodyCopy?: string; cta?: string };
-            translated = {
-              headline: body.headline ?? translated.headline,
-              bodyCopy: body.bodyCopy ?? translated.bodyCopy,
-              cta: body.cta ?? translated.cta,
-            };
-          } catch {
-            // response body wasn't JSON — proceed with originals
-          }
-        }
+        const result = await response.json() as { resultUrls?: string[]; images?: { url: string }[]; error?: string };
 
-        // Merge translated content with original styling
-        const translatedZones = textZones.map((zone, i) => ({
-          ...zone,
-          content:
-            [translated.headline, translated.bodyCopy, translated.cta][i] ??
-            zone.content,
-        }));
-
-        // Step 2: composite translated text onto master image
-        const compositePayload = { imageUrl, textZones: translatedZones };
-        console.log("[TextComposite] composite payload:", JSON.stringify(compositePayload).slice(0, 400));
-        const compositeRes = await apiFetch("/api/composite-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(compositePayload),
-          timeout: 60000,
-        });
-
-        console.log("[TextComposite] composite status:", compositeRes.status);
-        if (!compositeRes.ok) {
-          let msg = "Compositing failed";
-          try {
-            const err = await compositeRes.json() as { error?: string; issues?: unknown[] };
-            console.error("[TextComposite] composite error body:", err);
-            msg = err.error ?? msg;
-          } catch (parseErr) {
-            console.error("[TextComposite] composite response not JSON:", parseErr);
-          }
+        if (!response.ok) {
+          const msg = result.error || "Language localisation failed";
           updateNodeData(nodeId, { isGenerating: false, error: msg });
           return { success: false, error: msg };
         }
 
-        const compositeBody = await compositeRes.text();
-        console.log("[TextComposite] composite ok body:", compositeBody.slice(0, 200));
-        let url: string;
-        try {
-          url = (JSON.parse(compositeBody) as { url: string }).url;
-        } catch (parseErr) {
-          console.error("[TextComposite] composite body not JSON:", parseErr, compositeBody.slice(0, 200));
-          const msg = "Composite response was not JSON";
+        const outputUrl = result.resultUrls?.[0] ?? result.images?.[0]?.url;
+        if (!outputUrl) {
+          const msg = "No image returned from localisation";
           updateNodeData(nodeId, { isGenerating: false, error: msg });
           return { success: false, error: msg };
         }
+
+        console.log("[TextComposite] localised image:", outputUrl);
 
         updateNodeData(nodeId, {
-          outputUrl: url,
+          outputUrl,
           imageUrl,
-          textConfig: textZones,
           isGenerating: false,
           error: undefined,
         });
 
-        // Propagate composited image URL to any downstream Preview nodes
+        // Propagate to downstream Preview nodes
         const allEdges = getEdges();
         const allNodes = getNodes();
         for (const edge of allEdges) {
           if (edge.source === nodeId && edge.sourceHandle === "image") {
             const targetNode = allNodes.find((n) => n.id === edge.target && n.type === "preview");
             if (targetNode) {
-              updateNodeData(targetNode.id, { previewUrl: url });
+              updateNodeData(targetNode.id, { previewUrl: outputUrl });
             }
           }
         }
 
-        return { success: true, data: { url } };
+        return { success: true, data: { url: outputUrl } };
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Text composite failed";
+        const msg = e instanceof Error ? e.message : "Language localisation failed";
         updateNodeData(nodeId, { isGenerating: false, error: msg });
         throw new Error(msg);
       }
     },
-    [extractTextConfig, updateNodeData, getEdges, getNodes]
+    [updateNodeData, getEdges, getNodes]
   );
 
   /**
@@ -2216,13 +2144,8 @@ export function useWorkflowExecution() {
               input.nodeType === "seedream45" ||
               input.nodeType === "file"
           );
-          const hasTextConfig = inputs.some(
-            (input) => input.handleType === "textConfig"
-          );
           if (!hasImage)
-            return { canExecute: false, reason: "Connect an image source" };
-          if (!hasTextConfig)
-            return { canExecute: false, reason: "Connect a Banner Input node" };
+            return { canExecute: false, reason: "Connect a master image source" };
           return { canExecute: true };
         }
 

@@ -26,8 +26,7 @@ const TextCompositeNode = memo(function TextCompositeNode({
       label={nodeData.label || "Text Composite"}
       selected={selected}
       inputs={[
-        { id: "image", label: "Image", color: "#F59E0B" },
-        { id: "textConfig", label: "Text Config", color: "#2DD4BF" },
+        { id: "image", label: "Master Image", color: "#F59E0B" },
       ]}
       outputs={[{ id: "image", label: "Image", color: "#F59E0B" }]}
       isGenerating={nodeData.isGenerating}
@@ -44,7 +43,7 @@ const TextCompositeNode = memo(function TextCompositeNode({
             className="animate-pulse rounded-lg p-3 text-[10px] text-zinc-500"
             style={{ backgroundColor: "rgb(31,31,35)" }}
           >
-            Translating and compositing...
+            Localising text via AI...
           </div>
         ) : nodeData.outputUrl ? (
           <div className="relative w-full overflow-hidden rounded-md" style={{ aspectRatio: "16/9" }}>
@@ -67,7 +66,7 @@ const TextCompositeNode = memo(function TextCompositeNode({
             className="rounded-lg p-3 text-[10px] text-zinc-600"
             style={{ backgroundColor: "rgb(31,31,35)" }}
           >
-            Connect an image + Text Config, then run
+            Connect master image, then run to localise
           </div>
         )}
       </div>
