@@ -285,6 +285,7 @@ export interface TextCompositeNodeData extends BaseNodeData {
   textConfig?: TextZone[]; // received from BannerInputNode (input)
   outputUrl?: string; // composited result (output)
   isGenerating?: boolean;
+  error?: string; // last execution error for display
 }
 
 // Union type for all node data

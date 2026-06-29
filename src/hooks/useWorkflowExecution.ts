@@ -1538,22 +1538,20 @@ export function useWorkflowExecution() {
       const textZones = extractTextConfig(inputs);
 
       if (!imageUrl) {
-        return {
-          success: false,
-          error: "Connect an image source (image gen node or file).",
-        };
+        const msg = "No master image yet — run the image generation node first.";
+        updateNodeData(nodeId, { error: msg });
+        return { success: false, error: msg };
       }
       if (!textZones || textZones.length === 0) {
-        return {
-          success: false,
-          error: "Connect a Banner Input node to supply text zones.",
-        };
+        const msg = "Connect a Banner Input node to supply text zones.";
+        updateNodeData(nodeId, { error: msg });
+        return { success: false, error: msg };
       }
 
-      updateNodeData(nodeId, { isGenerating: true });
+      updateNodeData(nodeId, { isGenerating: true, error: undefined });
 
       try {
-        // Step 1: translate text content to target language
+        // Step 1: translate text content to target language (falls back to originals on any failure)
         const translateRes = await apiFetch("/api/translate-text", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1568,20 +1566,10 @@ export function useWorkflowExecution() {
           timeout: 30000,
         });
 
-        if (!translateRes.ok) {
-          const err = await translateRes.json();
-          updateNodeData(nodeId, { isGenerating: false });
-          return {
-            success: false,
-            error: (err as { error?: string }).error ?? "Translation failed",
-          };
-        }
-
-        const translated = (await translateRes.json()) as {
-          headline: string;
-          bodyCopy: string;
-          cta: string;
-        };
+        // translate-text always returns 200 (originals on failure) — only hard errors skip this
+        const translated = translateRes.ok
+          ? ((await translateRes.json()) as { headline: string; bodyCopy: string; cta: string })
+          : { headline: textZones[0]?.content ?? "", bodyCopy: textZones[1]?.content ?? "", cta: textZones[2]?.content ?? "" };
 
         // Merge translated content with original styling
         const translatedZones = textZones.map((zone, i) => ({
@@ -1601,11 +1589,9 @@ export function useWorkflowExecution() {
 
         if (!compositeRes.ok) {
           const err = await compositeRes.json();
-          updateNodeData(nodeId, { isGenerating: false });
-          return {
-            success: false,
-            error: (err as { error?: string }).error ?? "Compositing failed",
-          };
+          const msg = (err as { error?: string }).error ?? "Compositing failed";
+          updateNodeData(nodeId, { isGenerating: false, error: msg });
+          return { success: false, error: msg };
         }
 
         const { url } = (await compositeRes.json()) as { url: string };
@@ -1615,12 +1601,14 @@ export function useWorkflowExecution() {
           imageUrl,
           textConfig: textZones,
           isGenerating: false,
+          error: undefined,
         });
 
         return { success: true, data: { url } };
       } catch (e) {
-        updateNodeData(nodeId, { isGenerating: false });
-        throw new Error(e instanceof Error ? e.message : "Text composite failed");
+        const msg = e instanceof Error ? e.message : "Text composite failed";
+        updateNodeData(nodeId, { isGenerating: false, error: msg });
+        throw new Error(msg);
       }
     },
     [extractTextConfig, updateNodeData]

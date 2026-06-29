@@ -51,10 +51,12 @@ export async function POST(request: NextRequest) {
 
   const apiKey = await getApiKey(user!.id);
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "No API key. Add your fal.ai key in Settings.", code: "NO_API_KEY" },
-      { status: 400 }
-    );
+    // No FAL key configured — return originals so compositing still proceeds
+    return NextResponse.json({
+      headline: texts.headline,
+      bodyCopy: texts.bodyCopy,
+      cta: texts.cta,
+    });
   }
   configureFalClient(apiKey);
 

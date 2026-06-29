@@ -55,6 +55,13 @@ const TextCompositeNode = memo(function TextCompositeNode({
               className="object-cover"
             />
           </div>
+        ) : nodeData.error ? (
+          <div
+            className="rounded-lg p-3 text-[10px] text-red-400"
+            style={{ backgroundColor: "rgb(31,31,35)" }}
+          >
+            {nodeData.error}
+          </div>
         ) : (
           <div
             className="rounded-lg p-3 text-[10px] text-zinc-600"
