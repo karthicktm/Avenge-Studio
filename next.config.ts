@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "100mb",
     },
   },
+  // sharp's .node file is traced by standalone, but the bundled libvips .so files
+  // it dlopen()s at runtime are NOT traced (dynamic loading is invisible to the tracer).
+  // This forces the standalone bundler to copy the full @img/sharp-* package tree.
+  outputFileTracingIncludes: {
+    "/api/**": ["./node_modules/**/@img/sharp-linuxmusl-x64/**"],
+  },
   images: {
     remotePatterns: [
       {
