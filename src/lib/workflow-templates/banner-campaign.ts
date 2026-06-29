@@ -91,7 +91,7 @@ export const bannerCampaignTemplate: WorkflowTemplate = {
       source: "tpl-banner",
       sourceHandle: "prompt",
       target: "tpl-gen",
-      targetHandle: "prompt",
+      targetHandle: undefined,
       type: "gradient",
     },
     // BannerInput → NanoBananaPro (reference image, optional)

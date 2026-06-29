@@ -1521,12 +1521,18 @@ export function useWorkflowExecution() {
           input.handleType === "image" ||
           input.nodeType === "nanoBananaPro" ||
           input.nodeType === "seedream45" ||
-          input.nodeType === "file"
+          input.nodeType === "file" ||
+          input.nodeType === "bannerInput"
       );
       let imageUrl: string | undefined;
       if (imageInput) {
-        const d = imageInput.data as { imageUrl?: string };
-        imageUrl = d.imageUrl;
+        if (imageInput.nodeType === "bannerInput") {
+          const d = imageInput.data as BannerInputNodeData;
+          imageUrl = d.referenceImageUrl;
+        } else {
+          const d = imageInput.data as { imageUrl?: string };
+          imageUrl = d.imageUrl;
+        }
       }
 
       const textZones = extractTextConfig(inputs);
@@ -1612,9 +1618,9 @@ export function useWorkflowExecution() {
         });
 
         return { success: true, data: { url } };
-      } catch {
+      } catch (e) {
         updateNodeData(nodeId, { isGenerating: false });
-        throw new Error("Text composite failed");
+        throw new Error(e instanceof Error ? e.message : "Text composite failed");
       }
     },
     [extractTextConfig, updateNodeData]

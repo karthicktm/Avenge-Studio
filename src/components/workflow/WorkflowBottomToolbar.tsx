@@ -560,6 +560,10 @@ export default function WorkflowBottomToolbar({
         nodeHeight = 320;
       } else if (node.type === "languagePrompt") {
         nodeHeight = 200;
+      } else if (node.type === "bannerInput") {
+        nodeHeight = 600;
+      } else if (node.type === "textComposite") {
+        nodeHeight = 200;
       } else if (node.type === "file" || node.type === "imageInput") {
         nodeHeight = 400;
       } else if (

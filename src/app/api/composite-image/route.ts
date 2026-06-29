@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import sharp from "sharp";
 import { writeFile, mkdir, readFile } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, lstatSync } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import {
@@ -129,14 +129,50 @@ export async function POST(request: NextRequest) {
   if (imageUrl.startsWith("/")) {
     // Local path: resolve to absolute disk path and read directly (no HTTP round-trip)
     const absolutePath = getFilePath(imageUrl);
-    if (!absolutePath || !existsSync(absolutePath)) {
+    if (!absolutePath) {
+      return NextResponse.json(
+        { error: "Invalid image path" },
+        { status: 400 }
+      );
+    }
+
+    // Security: Ensure the resolved path stays within UPLOAD_DIR (prevent path traversal)
+    const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+    const resolvedPath = path.resolve(absolutePath);
+    if (
+      !resolvedPath.startsWith(path.resolve(UPLOAD_DIR) + path.sep) &&
+      resolvedPath !== path.resolve(UPLOAD_DIR)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid image path" },
+        { status: 400 }
+      );
+    }
+
+    // Security: Check for symlink attacks
+    try {
+      const stat = lstatSync(resolvedPath);
+      if (stat.isSymbolicLink()) {
+        return NextResponse.json(
+          { error: "Invalid image path" },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: "Image file not found" },
+        { status: 400 }
+      );
+    }
+
+    if (!existsSync(resolvedPath)) {
       return NextResponse.json(
         { error: "Source image not found" },
         { status: 400 }
       );
     }
     try {
-      imageBuffer = await readFile(absolutePath);
+      imageBuffer = await readFile(resolvedPath);
     } catch {
       return NextResponse.json(
         { error: "Failed to read source image" },
