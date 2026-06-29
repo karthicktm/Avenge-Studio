@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import sharp from "sharp";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -12,6 +12,23 @@ import {
   RATE_LIMITS,
 } from "@/lib/rate-limit";
 import { requireAuth } from "@/lib/auth-helpers";
+import { getFilePath } from "@/lib/storage";
+
+// Allowed external hostname suffixes for FAL CDN images
+const ALLOWED_EXTERNAL_HOSTNAMES = [".fal.run", ".fal.media"];
+const ALLOWED_EXACT_HOSTNAMES = ["fal.ai"];
+
+function isAllowedExternalUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname;
+    if (ALLOWED_EXACT_HOSTNAMES.includes(host)) return true;
+    return ALLOWED_EXTERNAL_HOSTNAMES.some((suffix) => host.endsWith(suffix));
+  } catch {
+    return false;
+  }
+}
 
 const textZoneSchema = z.object({
   content: z.string(),
@@ -108,21 +125,42 @@ export async function POST(request: NextRequest) {
 
   const { imageUrl, textZones } = parseResult.data;
 
-  // Resolve local /api/files/... URLs to absolute for fetching
-  const fetchUrl = imageUrl.startsWith("/")
-    ? `http://localhost:${process.env.PORT ?? 3000}${imageUrl}`
-    : imageUrl;
-
   let imageBuffer: Buffer;
-  try {
-    const res = await fetch(fetchUrl);
-    if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
-    imageBuffer = Buffer.from(await res.arrayBuffer());
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to fetch source image" },
-      { status: 400 }
-    );
+  if (imageUrl.startsWith("/")) {
+    // Local path: resolve to absolute disk path and read directly (no HTTP round-trip)
+    const absolutePath = getFilePath(imageUrl);
+    if (!absolutePath || !existsSync(absolutePath)) {
+      return NextResponse.json(
+        { error: "Source image not found" },
+        { status: 400 }
+      );
+    }
+    try {
+      imageBuffer = await readFile(absolutePath);
+    } catch {
+      return NextResponse.json(
+        { error: "Failed to read source image" },
+        { status: 400 }
+      );
+    }
+  } else {
+    // External URL: only allow FAL CDN hostnames
+    if (!isAllowedExternalUrl(imageUrl)) {
+      return NextResponse.json(
+        { error: "External image source not allowed" },
+        { status: 400 }
+      );
+    }
+    try {
+      const res = await fetch(imageUrl);
+      if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+      imageBuffer = Buffer.from(await res.arrayBuffer());
+    } catch {
+      return NextResponse.json(
+        { error: "Failed to fetch source image" },
+        { status: 400 }
+      );
+    }
   }
 
   const { width: w = 1920, height: h = 1080 } =
@@ -146,12 +184,19 @@ export async function POST(request: NextRequest) {
       fill="${zone.color}"
       text-anchor="${anchor}"
       dominant-baseline="auto"
-      style="filter:drop-shadow(0px 2px 6px rgba(0,0,0,0.85))"
+      filter="url(#shadow)"
     >${escaped}</text>`;
     })
     .join("\n");
 
-  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">\n${svgTexts}\n</svg>`;
+  // Use a native SVG filter in <defs> — librsvg has inconsistent CSS filter support
+  const svgDefs = `<defs>
+  <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.85)"/>
+  </filter>
+</defs>`;
+
+  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">\n${svgDefs}\n${svgTexts}\n</svg>`;
 
   let compositedBuffer: Buffer;
   try {
