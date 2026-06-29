@@ -30,6 +30,7 @@ import {
   VideoTransitionNode,
   ProductInputNode,
   LanguagePromptNode,
+  BannerInputNode,
 } from "./nodes";
 import { GradientEdge } from "./edges";
 import WorkflowBottomToolbar, {
@@ -65,6 +66,7 @@ const nodeTypes: NodeTypes = {
   videoTransition: VideoTransitionNode,
   productInput: ProductInputNode,
   languagePrompt: LanguagePromptNode,
+  bannerInput: BannerInputNode,
 };
 
 // Register custom edge types - defined outside component to prevent recreation

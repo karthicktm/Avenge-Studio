@@ -17,3 +17,4 @@ export { default as VideoTrimNode } from "./VideoTrimNode";
 export { default as VideoTransitionNode } from "./VideoTransitionNode";
 export { default as ProductInputNode } from "./ProductInputNode";
 export { default as LanguagePromptNode } from "./LanguagePromptNode";
+export { default as BannerInputNode } from "./BannerInputNode";
