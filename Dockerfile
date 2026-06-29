@@ -25,6 +25,17 @@ RUN pnpm install --frozen-lockfile
 # Generate Prisma client (needed for runtime and migrations)
 RUN pnpm prisma generate
 
+# Collect sharp's bundled libvips .so files into a fixed path.
+# sharp's .node file dlopen()s these at runtime, but Next.js standalone file-tracing
+# is static and cannot follow dlopen() calls, so they are stripped from the output.
+# We gather them here so the runner stage can inject them back without symlink conflicts
+# (pnpm creates symlinks inside its virtual store that confuse Docker's COPY layer merge).
+RUN mkdir -p /app/.sharp-libs && \
+    find /app/node_modules -not -type d \( -name "libvips*.so*" -o -name "libglib*.so*" \
+      -o -name "libgobject*.so*" -o -name "libffi*.so*" \) \
+      -exec cp {} /app/.sharp-libs/ \; 2>/dev/null || true && \
+    echo "sharp .so files collected: $(ls /app/.sharp-libs/ | wc -l)"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Builder
 # ─────────────────────────────────────────────────────────────────────────────
@@ -94,10 +105,19 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# The standalone bundler traces .node native files but cannot follow dlopen() calls,
-# so the bundled libvips .so files are missing from the output. Copy the full sharp
-# pnpm virtual-store entry from the deps stage so all shared libraries are present.
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.pnpm/sharp@0.35.2 /app/node_modules/.pnpm/sharp@0.35.2
+# Inject the sharp bundled .so files that standalone file-tracing dropped.
+# We copy them into the exact lib/ dir where the .node binary lives so the
+# dynamic linker (RPATH=$ORIGIN) can find them at runtime.
+COPY --from=deps /app/.sharp-libs/ /tmp/.sharp-libs/
+RUN DEST=$(find /app/node_modules -name "sharp-linux*.node" -exec dirname {} \; 2>/dev/null | head -1) && \
+    if [ -n "$DEST" ] && [ "$(ls /tmp/.sharp-libs/ 2>/dev/null)" ]; then \
+      cp /tmp/.sharp-libs/* "$DEST/" && \
+      chown nextjs:nodejs "$DEST"/*.so* && \
+      echo "Injected sharp .so files into $DEST"; \
+    else \
+      echo "No sharp .so files to inject (DEST=$DEST)"; \
+    fi && \
+    rm -rf /tmp/.sharp-libs
 
 # Copy startup script
 COPY --chown=nextjs:nodejs scripts/start.sh ./start.sh
