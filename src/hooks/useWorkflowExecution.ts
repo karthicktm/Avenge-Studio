@@ -1521,13 +1521,12 @@ export function useWorkflowExecution() {
           input.handleType === "image" ||
           input.nodeType === "nanoBananaPro" ||
           input.nodeType === "seedream45" ||
-          input.nodeType === "file" ||
-          input.nodeType === "textComposite"
+          input.nodeType === "file"
       );
       let imageUrl: string | undefined;
       if (imageInput) {
-        const d = imageInput.data as { imageUrl?: string; outputUrl?: string };
-        imageUrl = d.imageUrl ?? d.outputUrl;
+        const d = imageInput.data as { imageUrl?: string };
+        imageUrl = d.imageUrl;
       }
 
       const textZones = extractTextConfig(inputs);
@@ -2161,8 +2160,7 @@ export function useWorkflowExecution() {
               input.handleType === "image" ||
               input.nodeType === "nanoBananaPro" ||
               input.nodeType === "seedream45" ||
-              input.nodeType === "file" ||
-              input.nodeType === "textComposite"
+              input.nodeType === "file"
           );
           const hasTextConfig = inputs.some(
             (input) => input.handleType === "textConfig"
