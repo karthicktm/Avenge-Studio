@@ -18,3 +18,4 @@ export { default as VideoTransitionNode } from "./VideoTransitionNode";
 export { default as ProductInputNode } from "./ProductInputNode";
 export { default as LanguagePromptNode } from "./LanguagePromptNode";
 export { default as BannerInputNode } from "./BannerInputNode";
+export { default as TextCompositeNode } from "./TextCompositeNode";

@@ -20,6 +20,9 @@ import type {
   VideoTrimNodeData,
   VideoTransitionNodeData,
   LanguagePromptNodeData,
+  TextCompositeNodeData,
+  BannerInputNodeData,
+  TextZone,
 } from "@/components/workflow/types";
 import { useGenerationStore } from "@/lib/stores/generationStore";
 
@@ -166,6 +169,7 @@ const EXECUTABLE_NODE_TYPES = new Set([
   "videoTrim",
   "videoTransition",
   "languagePrompt",
+  "textComposite",
 ]);
 
 export function useWorkflowExecution() {
@@ -318,6 +322,23 @@ export function useWorkflowExecution() {
         return data.videoUrl;
       }
 
+      return undefined;
+    },
+    []
+  );
+
+  /**
+   * Extract text zones from a connected BannerInput / textConfig node
+   */
+  const extractTextConfig = useCallback(
+    (inputs: ConnectedInput[]): TextZone[] | undefined => {
+      const textConfigInput = inputs.find(
+        (input) => input.handleType === "textConfig"
+      );
+      if (textConfigInput) {
+        const d = textConfigInput.data as BannerInputNodeData;
+        return d.textZones;
+      }
       return undefined;
     },
     []
@@ -1486,6 +1507,121 @@ export function useWorkflowExecution() {
   );
 
   /**
+   * Execute TextComposite node — translates text and composites it onto the master image
+   */
+  const executeTextComposite = useCallback(
+    async (
+      nodeId: string,
+      nodeData: TextCompositeNodeData,
+      inputs: ConnectedInput[]
+    ): Promise<ExecutionResult> => {
+      // Extract master image from connected image gen node
+      const imageInput = inputs.find(
+        (input) =>
+          input.handleType === "image" ||
+          input.nodeType === "nanoBananaPro" ||
+          input.nodeType === "seedream45" ||
+          input.nodeType === "file" ||
+          input.nodeType === "textComposite"
+      );
+      let imageUrl: string | undefined;
+      if (imageInput) {
+        const d = imageInput.data as { imageUrl?: string; outputUrl?: string };
+        imageUrl = d.imageUrl ?? d.outputUrl;
+      }
+
+      const textZones = extractTextConfig(inputs);
+
+      if (!imageUrl) {
+        return {
+          success: false,
+          error: "Connect an image source (image gen node or file).",
+        };
+      }
+      if (!textZones || textZones.length === 0) {
+        return {
+          success: false,
+          error: "Connect a Banner Input node to supply text zones.",
+        };
+      }
+
+      updateNodeData(nodeId, { isGenerating: true });
+
+      try {
+        // Step 1: translate text content to target language
+        const translateRes = await apiFetch("/api/translate-text", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            texts: {
+              headline: textZones[0]?.content ?? "",
+              bodyCopy: textZones[1]?.content ?? "",
+              cta: textZones[2]?.content ?? "",
+            },
+            language: nodeData.language ?? "sv",
+          }),
+          timeout: 30000,
+        });
+
+        if (!translateRes.ok) {
+          const err = await translateRes.json();
+          updateNodeData(nodeId, { isGenerating: false });
+          return {
+            success: false,
+            error: (err as { error?: string }).error ?? "Translation failed",
+          };
+        }
+
+        const translated = (await translateRes.json()) as {
+          headline: string;
+          bodyCopy: string;
+          cta: string;
+        };
+
+        // Merge translated content with original styling
+        const translatedZones = textZones.map((zone, i) => ({
+          ...zone,
+          content:
+            [translated.headline, translated.bodyCopy, translated.cta][i] ??
+            zone.content,
+        }));
+
+        // Step 2: composite translated text onto master image
+        const compositeRes = await apiFetch("/api/composite-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageUrl, textZones: translatedZones }),
+          timeout: 60000,
+        });
+
+        if (!compositeRes.ok) {
+          const err = await compositeRes.json();
+          updateNodeData(nodeId, { isGenerating: false });
+          return {
+            success: false,
+            error: (err as { error?: string }).error ?? "Compositing failed",
+          };
+        }
+
+        const { url } = (await compositeRes.json()) as { url: string };
+
+        updateNodeData(nodeId, {
+          outputUrl: url,
+          imageUrl,
+          textConfig: textZones,
+          isGenerating: false,
+        });
+
+        return { success: true, data: { url } };
+      } catch {
+        updateNodeData(nodeId, { isGenerating: false });
+        throw new Error("Text composite failed");
+      }
+    },
+    [extractTextConfig, updateNodeData]
+  );
+
+  /**
    * Main execution function - routes to appropriate handler based on node type
    */
   const executeNode = useCallback(
@@ -1598,6 +1734,14 @@ export function useWorkflowExecution() {
             );
             break;
 
+          case "textComposite":
+            result = await executeTextComposite(
+              nodeId,
+              nodeData as TextCompositeNodeData,
+              inputs
+            );
+            break;
+
           default:
             result = {
               success: false,
@@ -1639,6 +1783,7 @@ export function useWorkflowExecution() {
       executeVideoTrim,
       executeVideoTransition,
       executeLanguagePrompt,
+      executeTextComposite,
     ]
   );
 
@@ -2007,6 +2152,25 @@ export function useWorkflowExecution() {
           if (!hasConnectedProduct) {
             return { canExecute: false, reason: "Connect a Product Input node" };
           }
+          return { canExecute: true };
+        }
+
+        case "textComposite": {
+          const hasImage = inputs.some(
+            (input) =>
+              input.handleType === "image" ||
+              input.nodeType === "nanoBananaPro" ||
+              input.nodeType === "seedream45" ||
+              input.nodeType === "file" ||
+              input.nodeType === "textComposite"
+          );
+          const hasTextConfig = inputs.some(
+            (input) => input.handleType === "textConfig"
+          );
+          if (!hasImage)
+            return { canExecute: false, reason: "Connect an image source" };
+          if (!hasTextConfig)
+            return { canExecute: false, reason: "Connect a Banner Input node" };
           return { canExecute: true };
         }
 

@@ -31,6 +31,7 @@ import {
   ProductInputNode,
   LanguagePromptNode,
   BannerInputNode,
+  TextCompositeNode,
 } from "./nodes";
 import { GradientEdge } from "./edges";
 import WorkflowBottomToolbar, {
@@ -67,6 +68,7 @@ const nodeTypes: NodeTypes = {
   productInput: ProductInputNode,
   languagePrompt: LanguagePromptNode,
   bannerInput: BannerInputNode,
+  textComposite: TextCompositeNode,
 };
 
 // Register custom edge types - defined outside component to prevent recreation
