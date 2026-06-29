@@ -61,7 +61,9 @@ export async function POST(request: NextRequest) {
   }
   configureFalClient(apiKey);
 
-  const prompt = `Translate these three banner text items to ${langName}. Return ONLY a JSON object with exactly these keys: "headline", "bodyCopy", "cta". No explanation, no markdown, just the JSON object.
+  const prompt = `You are a professional marketing translator. Translate ALL of the following banner text items into ${langName}. You MUST translate every item — do not keep any text in its original language, even if it looks similar.
+
+Return ONLY a JSON object with exactly these keys: "headline", "bodyCopy", "cta". No explanation, no markdown, no code blocks, just the raw JSON object.
 
 Headline: ${texts.headline}
 Body copy: ${texts.bodyCopy}
@@ -80,17 +82,19 @@ CTA: ${texts.cta}`;
     );
 
     const raw: string = result?.data?.output ?? result?.output ?? "";
+    console.log("[translate-text] LLM raw response:", raw.slice(0, 500));
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in response");
+    if (!jsonMatch) throw new Error("No JSON in LLM response: " + raw.slice(0, 200));
     const translated = JSON.parse(jsonMatch[0]) as Record<string, string>;
+    console.log("[translate-text] parsed translation:", JSON.stringify(translated));
 
     return NextResponse.json({
       headline: translated.headline ?? texts.headline,
       bodyCopy: translated.bodyCopy ?? texts.bodyCopy,
       cta: translated.cta ?? texts.cta,
     });
-  } catch {
-    // Fallback: return original texts if translation fails
+  } catch (err) {
+    console.error("[translate-text] translation failed, returning originals:", err instanceof Error ? err.message : err);
     return NextResponse.json({
       headline: texts.headline,
       bodyCopy: texts.bodyCopy,

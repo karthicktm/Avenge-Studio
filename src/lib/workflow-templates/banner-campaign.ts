@@ -145,7 +145,7 @@ export const bannerCampaignTemplate: WorkflowTemplate = {
       source: "tpl-composite-se",
       sourceHandle: "image",
       target: "tpl-preview-se",
-      targetHandle: "image",
+      targetHandle: "media",
       type: "gradient",
     },
     // TextComposite NO → Preview NO
@@ -154,7 +154,7 @@ export const bannerCampaignTemplate: WorkflowTemplate = {
       source: "tpl-composite-no",
       sourceHandle: "image",
       target: "tpl-preview-no",
-      targetHandle: "image",
+      targetHandle: "media",
       type: "gradient",
     },
   ],

@@ -1638,6 +1638,18 @@ export function useWorkflowExecution() {
           error: undefined,
         });
 
+        // Propagate composited image URL to any downstream Preview nodes
+        const allEdges = getEdges();
+        const allNodes = getNodes();
+        for (const edge of allEdges) {
+          if (edge.source === nodeId && edge.sourceHandle === "image") {
+            const targetNode = allNodes.find((n) => n.id === edge.target && n.type === "preview");
+            if (targetNode) {
+              updateNodeData(targetNode.id, { previewUrl: url });
+            }
+          }
+        }
+
         return { success: true, data: { url } };
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Text composite failed";
@@ -1645,7 +1657,7 @@ export function useWorkflowExecution() {
         throw new Error(msg);
       }
     },
-    [extractTextConfig, updateNodeData]
+    [extractTextConfig, updateNodeData, getEdges, getNodes]
   );
 
   /**
