@@ -94,6 +94,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# The standalone bundler traces .node native files but cannot follow dlopen() calls,
+# so the bundled libvips .so files are missing from the output. Copy the full sharp
+# pnpm virtual-store entry from the deps stage so all shared libraries are present.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.pnpm/sharp@0.35.2 /app/node_modules/.pnpm/sharp@0.35.2
+
 # Copy startup script
 COPY --chown=nextjs:nodejs scripts/start.sh ./start.sh
 RUN chmod +x ./start.sh
