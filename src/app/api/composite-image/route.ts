@@ -202,8 +202,20 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { width: w = 1920, height: h = 1080 } =
-    await sharp(imageBuffer).metadata();
+  let w: number;
+  let h: number;
+  try {
+    const meta = await sharp(imageBuffer).metadata();
+    w = meta.width ?? 1920;
+    h = meta.height ?? 1080;
+    console.log("[composite-image] image size:", w, "x", h);
+  } catch (e) {
+    console.error("[composite-image] sharp metadata failed:", e);
+    return NextResponse.json(
+      { error: "Failed to read image metadata: " + (e instanceof Error ? e.message : String(e)) },
+      { status: 500 }
+    );
+  }
 
   // Build SVG overlay — each text zone as a <text> element with drop shadow
   const svgTexts = textZones
@@ -215,27 +227,15 @@ export async function POST(request: NextRequest) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
-      return `<text
-      x="${x}"
-      y="${y}"
-      font-family="${zone.font}, sans-serif"
-      font-size="${zone.size}"
-      fill="${zone.color}"
-      text-anchor="${anchor}"
-      dominant-baseline="auto"
-      filter="url(#shadow)"
-    >${escaped}</text>`;
+      return `<text x="${x}" y="${y}" font-family="${zone.font}, sans-serif" font-size="${zone.size}" fill="${zone.color}" text-anchor="${anchor}" dominant-baseline="auto" filter="url(#shadow)">${escaped}</text>`;
     })
     .join("\n");
 
-  // Use a native SVG filter in <defs> — librsvg has inconsistent CSS filter support
-  const svgDefs = `<defs>
-  <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.85)"/>
-  </filter>
-</defs>`;
+  // flood-color uses rgb + flood-opacity (rgba() is not reliably supported by librsvg)
+  const svgDefs = `<defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgb(0,0,0)" flood-opacity="0.85"/></filter></defs>`;
 
-  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">\n${svgDefs}\n${svgTexts}\n</svg>`;
+  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${svgDefs}${svgTexts}</svg>`;
+  console.log("[composite-image] svg length:", svg.length);
 
   let compositedBuffer: Buffer;
   try {
@@ -244,13 +244,24 @@ export async function POST(request: NextRequest) {
       .png()
       .toBuffer();
   } catch (e) {
-    console.error("[composite-image] sharp failed:", e);
+    console.error("[composite-image] sharp composite failed:", e);
     return NextResponse.json(
       { error: "Image compositing failed: " + (e instanceof Error ? e.message : String(e)) },
       { status: 500 }
     );
   }
 
-  const url = await saveCompositeBuffer(compositedBuffer);
+  let url: string;
+  try {
+    url = await saveCompositeBuffer(compositedBuffer);
+  } catch (e) {
+    console.error("[composite-image] save failed:", e);
+    return NextResponse.json(
+      { error: "Failed to save composited image: " + (e instanceof Error ? e.message : String(e)) },
+      { status: 500 }
+    );
+  }
+
+  console.log("[composite-image] done, url:", url);
   return NextResponse.json({ url });
 }
