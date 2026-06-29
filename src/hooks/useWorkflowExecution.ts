@@ -1566,10 +1566,24 @@ export function useWorkflowExecution() {
           timeout: 30000,
         });
 
-        // translate-text always returns 200 (originals on failure) — only hard errors skip this
-        const translated = translateRes.ok
-          ? ((await translateRes.json()) as { headline: string; bodyCopy: string; cta: string })
-          : { headline: textZones[0]?.content ?? "", bodyCopy: textZones[1]?.content ?? "", cta: textZones[2]?.content ?? "" };
+        // Safely parse translate response — fall back to originals on any parse failure
+        let translated: { headline: string; bodyCopy: string; cta: string } = {
+          headline: textZones[0]?.content ?? "",
+          bodyCopy: textZones[1]?.content ?? "",
+          cta: textZones[2]?.content ?? "",
+        };
+        if (translateRes.ok) {
+          try {
+            const body = await translateRes.json() as { headline?: string; bodyCopy?: string; cta?: string };
+            translated = {
+              headline: body.headline ?? translated.headline,
+              bodyCopy: body.bodyCopy ?? translated.bodyCopy,
+              cta: body.cta ?? translated.cta,
+            };
+          } catch {
+            // response body wasn't JSON — proceed with originals
+          }
+        }
 
         // Merge translated content with original styling
         const translatedZones = textZones.map((zone, i) => ({
@@ -1588,13 +1602,16 @@ export function useWorkflowExecution() {
         });
 
         if (!compositeRes.ok) {
-          const err = await compositeRes.json();
-          const msg = (err as { error?: string }).error ?? "Compositing failed";
+          let msg = "Compositing failed";
+          try {
+            const err = await compositeRes.json() as { error?: string };
+            msg = err.error ?? msg;
+          } catch { /* ignore parse error */ }
           updateNodeData(nodeId, { isGenerating: false, error: msg });
           return { success: false, error: msg };
         }
 
-        const { url } = (await compositeRes.json()) as { url: string };
+        const { url } = (await compositeRes.json()) as { url: string }; // compositeRes.ok is true here
 
         updateNodeData(nodeId, {
           outputUrl: url,
