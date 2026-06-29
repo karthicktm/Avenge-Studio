@@ -25,17 +25,6 @@ RUN pnpm install --frozen-lockfile
 # Generate Prisma client (needed for runtime and migrations)
 RUN pnpm prisma generate
 
-# Collect sharp's bundled libvips .so files into a fixed path.
-# sharp's .node file dlopen()s these at runtime, but Next.js standalone file-tracing
-# is static and cannot follow dlopen() calls, so they are stripped from the output.
-# We gather them here so the runner stage can inject them back without symlink conflicts
-# (pnpm creates symlinks inside its virtual store that confuse Docker's COPY layer merge).
-RUN mkdir -p /app/.sharp-libs && \
-    find /app/node_modules -not -type d \( -name "libvips*.so*" -o -name "libglib*.so*" \
-      -o -name "libgobject*.so*" -o -name "libffi*.so*" \) \
-      -exec cp {} /app/.sharp-libs/ \; 2>/dev/null || true && \
-    echo "sharp .so files collected: $(ls /app/.sharp-libs/ | wc -l)"
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Builder
 # ─────────────────────────────────────────────────────────────────────────────
@@ -105,19 +94,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Inject the sharp bundled .so files that standalone file-tracing dropped.
-# We copy them into the exact lib/ dir where the .node binary lives so the
-# dynamic linker (RPATH=$ORIGIN) can find them at runtime.
-COPY --from=deps /app/.sharp-libs/ /tmp/.sharp-libs/
-RUN DEST=$(find /app/node_modules -name "sharp-linux*.node" -exec dirname {} \; 2>/dev/null | head -1) && \
-    if [ -n "$DEST" ] && [ "$(ls /tmp/.sharp-libs/ 2>/dev/null)" ]; then \
-      cp /tmp/.sharp-libs/* "$DEST/" && \
-      chown nextjs:nodejs "$DEST"/*.so* && \
-      echo "Injected sharp .so files into $DEST"; \
-    else \
-      echo "No sharp .so files to inject (DEST=$DEST)"; \
-    fi && \
-    rm -rf /tmp/.sharp-libs
+# Reinstall sharp for this exact platform so the bundled libvips .so files are present.
+# The Next.js standalone file tracer copies the .node binary but cannot follow dlopen()
+# calls, so libvips-cpp.so and friends are stripped. A plain `npm install` here puts
+# sharp + @img/sharp-linuxmusl-x64 (with all .so files) into the flat node_modules,
+# and Node.js finds it there before the pnpm virtual-store path.
+RUN npm install --no-save --include=optional sharp@0.35.2
 
 # Copy startup script
 COPY --chown=nextjs:nodejs scripts/start.sh ./start.sh
